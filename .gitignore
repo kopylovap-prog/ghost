@@ -1,0 +1,12 @@
+/target/
+**/*.rs.bk
+.ghost/
+ghost-data/
+wallet.dat
+*.wallet
+*.seed
+mnemonic.txt
+.vscode/
+.idea/
+.DS_Store
+*.log

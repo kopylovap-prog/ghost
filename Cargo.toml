@@ -1,0 +1,43 @@
+[workspace]
+members = [
+    "crates/ghost-crypto",
+    "crates/ghost-consensus",
+    "crates/ghost-light-client",
+    "crates/ghost-wallet",
+    "crates/ghost-network",
+    "crates/ghost-node",
+    "crates/ghost-bridge",
+    "crates/ghost-miner",
+    "cli/ghost",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.2.0"
+edition = "2021"
+license = "BSD-3-Clause"
+
+[workspace.dependencies]
+curve25519-dalek = { version = "4.1", features = ["serde", "rand_core"] }
+blake3 = "1.5"
+sha3 = "0.10"
+rand = "0.8"
+zeroize = { version = "1.7", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+borsh = { version = "1.3", features = ["derive"] }
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4.4", features = ["derive"] }
+hex = "0.4"
+tokio = { version = "1.35", features = ["full"] }
+num_cpus = "1.16"
+parking_lot = "0.12"
+toml = "0.8"
+dirs = "5.0"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

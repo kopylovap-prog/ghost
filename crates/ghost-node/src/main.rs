@@ -1,0 +1,42 @@
+//! ghostd - node daemon
+
+use clap::Parser;
+use ghost_node::{DaemonConfig, GhostDaemon};
+use std::path::PathBuf;
+
+#[derive(Parser)]
+#[command(name = "ghostd", about = "Ghost full node daemon", version)]
+struct Args {
+    #[arg(short, long, default_value = "~/.ghost")]
+    data_dir: String,
+    #[arg(short, long, default_value_t = 18080)]
+    p2p_port: u16,
+    #[arg(short, long, default_value_t = 18081)]
+    rpc_port: u16,
+    #[arg(long)]
+    tor: bool,
+}
+
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
+
+    let args = Args::parse();
+    let expanded = args.data_dir.replace('~', &std::env::var("USERPROFILE").unwrap_or_default());
+
+    let config = DaemonConfig {
+        p2p_port: args.p2p_port,
+        rpc_port: args.rpc_port,
+        data_dir: PathBuf::from(expanded),
+        use_tor: args.tor,
+        ..Default::default()
+    };
+
+    let mut daemon = GhostDaemon::new(config).expect("failed to start daemon");
+    daemon.run().await.expect("daemon crashed");
+}

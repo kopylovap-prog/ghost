@@ -1,0 +1,9 @@
+[package]
+name = "ghost-consensus"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+ghost-crypto = { path = "../ghost-crypto" }
+borsh.workspace = true
+blake3.workspace = true
+thiserror.workspace = true
