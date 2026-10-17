@@ -8,6 +8,7 @@ members = [
     "crates/ghost-node",
     "crates/ghost-bridge",
     "crates/ghost-miner",
+    "crates/ghost-zk",
     "cli/ghost",
 ]
 resolver = "2"
