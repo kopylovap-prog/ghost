@@ -9,4 +9,5 @@ mnemonic.txt
 .vscode/
 .idea/
 .DS_Store
-*.log
+*.log*.bak-tx
+*.bak-zkint

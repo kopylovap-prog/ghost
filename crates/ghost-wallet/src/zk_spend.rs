@@ -118,6 +118,11 @@ impl TreeState {
         merkle::build_root(&self.leaves, self.depth)
     }
 
+    /// Tree depth (the tree has `2^depth` leaf slots).
+    pub fn depth(&self) -> usize {
+        self.depth
+    }
+
     /// Authentication path for the leaf at `index`.
     pub fn auth_path(&self, index: usize) -> Option<Vec<Fp>> {
         if index >= self.leaves.len() {
