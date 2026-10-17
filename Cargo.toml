@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/ghost-dex",
     "crates/ghost-crypto",
     "crates/ghost-consensus",
     "crates/ghost-light-client",
