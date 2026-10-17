@@ -3,5 +3,6 @@ name = "ghost-wallet"
 version.workspace = true
 edition.workspace = true
 [dependencies]
+ghost-zk = { path = "../ghost-zk", features = ["real-prover"] }
 ghost-crypto = { path = "../ghost-crypto" }
 thiserror.workspace = true

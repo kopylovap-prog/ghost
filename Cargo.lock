@@ -513,6 +513,7 @@ name = "ghost-wallet"
 version = "0.2.0"
 dependencies = [
  "ghost-crypto",
+ "ghost-zk",
  "thiserror",
 ]
 

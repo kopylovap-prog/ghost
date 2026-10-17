@@ -17,6 +17,18 @@ pub mod poseidon;
 #[cfg(feature = "real-prover")]
 pub mod prover;
 
+/// Everything a wallet (or any downstream crate) typically needs from
+/// ghost-zk, in one import: `use ghost_zk::prelude::*;`
+pub mod prelude {
+    pub use crate::circuit::FcmpWitness;
+    pub use crate::{merkle, Note, TREE_DEPTH_MAINNET};
+    pub use ff::{Field, PrimeField};
+    pub use pasta_curves::Fp;
+    pub use rand::rngs::OsRng;
+    #[cfg(feature = "real-prover")]
+    pub use crate::prover::{prove, verify, FcmpProof};
+}
+
 use pasta_curves::Fp;
 use thiserror::Error;
 
