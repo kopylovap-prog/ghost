@@ -19,6 +19,9 @@ contract WGHOST {
     address[] public quorum;
     uint256 public quorumThreshold;
 
+    /// Ghost lock tx hashes already minted (replay guard: 1 lock = 1 mint).
+    mapping(bytes32 => bool) private usedLock;
+
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Minted(address indexed to, uint256 value, bytes32 ghostTxHash);
@@ -82,6 +85,8 @@ contract WGHOST {
         bytes32 ghostTxHash,
         bytes[] calldata sigs
     ) external {
+        require(!usedLock[ghostTxHash], "wGHOST: used");
+        usedLock[ghostTxHash] = true;
         bytes32 digest = keccak256(
             abi.encodePacked("ghost-lock-v1", to, value, ghostTxHash)
         );
@@ -110,15 +115,15 @@ contract WGHOST {
         address prev = address(0);
         for (uint256 i = 0; i < sigs.length; i++) {
             require(sigs[i].length == 65, "wGHOST: sig len");
+            bytes calldata sig = sigs[i];
             bytes32 r;
             bytes32 s;
             uint8 v;
-            assembly {
-                r := calldataload(add(sigs.offset, add(i.offset, 0)))
-                s := calldataload(add(sigs.offset, add(i.offset, 32)))
-                v := shr(248, calldataload(add(sigs.offset, add(i.offset, 64))))
-            }
-            address signer = ecrecover(digest, v + 27, r, s);
+            require(uint8(sig[64]) < 2, "wGHOST: v");
+            r = bytes32(sig[0:32]);
+            s = bytes32(sig[32:64]);
+            v = uint8(sig[64]) + 27;
+            address signer = ecrecover(digest, v, r, s);
             require(signer > prev, "wGHOST: sig order"); // dup + sorted check
             prev = signer;
             if (_isMember(signer)) {

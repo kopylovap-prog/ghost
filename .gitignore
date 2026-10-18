@@ -11,3 +11,20 @@ mnemonic.txt
 .DS_Store
 *.log*.bak-tx
 *.bak-zkint
+
+# -- publish_ghost.ps1: secrets & local artifacts (do not remove)
+deployer.key
+deployer.key.*
+*.key
+*.pem
+.env
+.env.*
+target/
+tools/
+node_modules/
+out/
+cache/
+contracts/out/
+contracts/cache/
+*.bak
+*.bak-*
