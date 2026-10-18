@@ -644,6 +644,7 @@ dependencies = [
 name = "ghost-network"
 version = "0.2.0"
 dependencies = [
+ "ghost-bridge",
  "serde",
 ]
 
@@ -653,6 +654,7 @@ version = "0.2.0"
 dependencies = [
  "clap",
  "dirs",
+ "ghost-network",
  "thiserror",
  "tokio",
  "tracing",

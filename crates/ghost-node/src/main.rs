@@ -1,4 +1,4 @@
-//! ghostd - node daemon
+﻿//! ghostd - node daemon
 
 use clap::Parser;
 use ghost_node::{DaemonConfig, GhostDaemon};
@@ -19,6 +19,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
+    ghost_node::swap_service::autostart_from_env(); // ghostd swap service (wire_ghostd_swap)
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
