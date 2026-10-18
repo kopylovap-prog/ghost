@@ -676,6 +676,7 @@ version = "0.1.0"
 dependencies = [
  "blake3",
  "ff",
+ "group",
  "halo2_proofs",
  "pasta_curves",
  "rand",

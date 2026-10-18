@@ -9,6 +9,7 @@ halo2_proofs = "0.3"
 pasta_curves = "0.5"
 ff = "0.13"
 blake3 = "1"
+group = "0.13"
 thiserror = "1"
 rand = "0.8"
 
