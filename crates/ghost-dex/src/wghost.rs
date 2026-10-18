@@ -15,8 +15,40 @@ pub fn set_wghost(addr: Address) -> bool {
 }
 
 /// Current wGHOST address or the zero address placeholder.
+///
+/// Resolution order:
+/// 1. an address already set via [`set_wghost`]
+/// 2. the `WGHOST_ADDRESS` environment variable (0x-prefixed 20-byte hex);
+///    a successfully parsed value is cached into the same slot, as if
+///    [`set_wghost`] had been called
+/// 3. the zero address placeholder
 pub fn wghost() -> Address {
-    *WGHOST.get().unwrap_or(&Address([0u8; 20]))
+    if let Some(addr) = WGHOST.get() {
+        return *addr;
+    }
+    if let Ok(raw) = std::env::var("WGHOST_ADDRESS") {
+        if let Some(addr) = parse_address(&raw) {
+            let _ = WGHOST.set(addr);
+            return addr;
+        }
+    }
+    Address([0u8; 20])
+}
+
+/// Parse a 0x-prefixed (or bare) 20-byte hex EVM address.
+pub fn parse_address(raw: &str) -> Option<Address> {
+    let s = raw.trim();
+    let s = s
+        .strip_prefix("0x")
+        .or_else(|| s.strip_prefix("0X"))
+        .unwrap_or(s);
+    let bytes = hex::decode(s).ok()?;
+    if bytes.len() != 20 {
+        return None;
+    }
+    let mut out = [0u8; 20];
+    out.copy_from_slice(&bytes);
+    Some(Address(out))
 }
 
 /// burn(amount): destroy wGHOST to trigger native GHOST release on the
@@ -58,5 +90,19 @@ mod tests {
         let topic = burn_event_topic();
         assert_ne!(topic, [0u8; 32]);
         assert_ne!(burn_event_topic(), mint_event_topic());
+    }
+
+    #[test]
+    fn parse_address_shapes() {
+        let ok = "0x1111111111111111111111111111111111111111";
+        let a = parse_address(ok).expect("valid");
+        assert_eq!(a.0[0], 0x11);
+        assert_eq!(a.0[19], 0x11);
+        assert_eq!(parse_address(&ok.to_uppercase()).expect("valid").0[0], 0x11);
+        assert_eq!(parse_address(&ok[2..]).expect("bare").0[5], 0x11);
+        assert!(parse_address("0x1234").is_none());
+        assert!(parse_address("0xzz11111111111111111111111111111111111111").is_none());
+        assert!(parse_address("").is_none());
+        assert!(parse_address("0x11111111111111111111111111111111111111").is_none());
     }
 }
