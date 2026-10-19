@@ -12,6 +12,7 @@ name = "ghostd"
 path = "src/main.rs"
 
 [dependencies]
+ghost-consensus = { path = "../ghost-consensus" }
 ghost-network = { path = "../ghost-network" }
 tokio.workspace = true
 tracing.workspace = true

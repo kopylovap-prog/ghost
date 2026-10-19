@@ -1,6 +1,7 @@
 //! Ghost Consensus Layer
 pub mod block;
 pub mod transaction;
+pub mod v4;
 
 pub use block::{block_reward, Block, BlockHeader};
 pub use transaction::{Transaction, TxOutput};
