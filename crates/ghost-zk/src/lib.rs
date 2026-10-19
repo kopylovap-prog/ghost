@@ -15,6 +15,7 @@ pub mod circuit;
 pub mod merkle;
 pub mod poseidon;
 pub mod v4;
+pub mod fixed_base;
 #[cfg(feature = "real-prover")]
 pub mod prover;
 
