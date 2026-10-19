@@ -17,6 +17,7 @@ pub mod poseidon;
 pub mod v4;
 pub mod fixed_base;
 pub mod spend;
+pub mod v4_prover;
 #[cfg(feature = "real-prover")]
 pub mod prover;
 
