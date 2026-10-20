@@ -9,8 +9,10 @@ wrapped token (wGHOST), a DEX/bridge toolchain, and an atomic-swap stack for
 Monero <-> Ghost exchange, together with a zero-typing Windows (PowerShell)
 tooling chain.
 
-> **Status: v0.3.0 - first public release. Test networks only. An independent
-> security audit is REQUIRED before any mainnet use.**
+> **Status: v0.4.0 - value conservation release: balance is now enforced
+> in-circuit end to end (circuit, tx format, wallet, consensus). Test
+> networks only. An independent security audit is REQUIRED before any
+> mainnet use.**
 
 ## How the privacy works
 
@@ -19,6 +21,11 @@ tooling chain.
 - **FCMP++-style membership proofs.** A Halo2 circuit (FcmpCircuit) proves in
   zero knowledge that the spend key is a member of the global
   note-commitment tree at mainnet depth 2^32, and reveals only a nullifier.
+- **In-circuit value conservation (v4).** Every v4 spend proves its balance
+  in zero knowledge: value commitments RC = v*V + r*R are built in-circuit
+  from range-checked limbs over hashgen constants, inputs must equal
+  outputs, and a binding signature over the 15-slot public instance vector
+  makes any tampering fail verification.
 - **Transparent proving system.** Proofs are built and verified with
   halo2_proofs 0.3.5 (zcash lineage) and its IPA commitment scheme over the
   Pasta (Vesta) scalar field - no trusted setup.
@@ -35,13 +42,15 @@ tooling chain.
 
 | Path | Contents |
 |------|----------|
-| `crates/ghost-zk` | Halo2 FCMP++ zero-knowledge layer: Poseidon, sparse frontier, FcmpCircuit, real IPA prover |
-| `crates/ghost-wallet` | Shielded wallet: zk spend build/prove/self-verify, zk-native light wallet |
+| `crates/ghost-zk` | Halo2 FCMP++ zero-knowledge layer: Poseidon, sparse frontier, FcmpCircuit, v4 spend circuit, real IPA prover, prover bench |
+| `crates/ghost-wallet` | Shielded wallet: zk spend build/prove/self-verify, zk-native light wallet, tx v4 serialization |
+| `crates/ghost-consensus` | Consensus v4: validation order [S4 9], activation-height gate, nullifier seen-set, fee floor |
+| `crates/ghost-node` | Daemon: transaction submission gated by consensus `accept_transaction` |
 | `crates/ghost-bridge` | Monero bridge: cross-group DLEq, atomic-swap state machine, Monero RPC, swap P2P protocol |
 | `crates/ghost-dex` | Ethereum side: RLP, ABI, EIP-155 signer, Uniswap Router02 calldata, JSON-RPC client, wGHOST helpers |
 | `crates/ghost-network` | TCP swap node with automatic protocol replies |
 | `contracts/` | wGHOST.sol (quorum-mint ERC-20 wrapper) + Foundry deployment script and tests |
-| repo root | Zero-typing PowerShell tooling: Sepolia deploy chain, key rotation, GitHub publish |
+| repo root | Zero-typing PowerShell tooling: Sepolia deploy chain, key rotation, GitHub publish, release |
 
 ## Components
 
@@ -55,9 +64,17 @@ tooling chain.
 - FcmpCircuit: single-region circuit (65 rows per permutation) with gates
   poseidon-round (degree 5 + absorb masking), init-zero, tree-add, tree-mul;
   public instances expose the note-commitment-tree root and the nullifier.
+- v4 spend layer (v0.4): fixed-base scalar-mul chip (RC = v*V + r*R and the
+  H_leaf*G3 term computed in-circuit as public instances), leaf-v2 note
+  commitments, nullifier_v4 linking, and the full V4SpendCircuit - 1-in /
+  2-out topology (MAX_IN = 2, MAX_OUT = 4), balance padding, 15-slot
+  normative instance vector, binding signature, k = 13 at tree depth 2^32 -
+  with a mock-prover self-check and a real IPA prover path.
 - Real (non-mock) prover/verifier behind the `real-prover` feature: batch
   create_proof and plonk::SingleVerifier verification on
   halo2_proofs 0.3.5 (IPA, zcash lineage).
+- `benches/prover.rs`: deterministic full-pipeline benchmark of the v4
+  spend (prove_v4 / verify_v4) at 2^32 leaves, zero new dependencies.
 
 ### ghost-wallet (shielded wallet layer)
 
@@ -70,8 +87,31 @@ tooling chain.
   `build_zk_spend` with single-note selection and change handling,
   `confirm_zk_tx` mirroring consensus, a nullifier seen-set registry, and
   tree introspection helpers.
-- End-to-end mainnet-depth test: full build/prove/verify/confirm cycle of a
-  shielded payment at tree depth 2^32.
+- v0.4: `tx_v4.rs` - canonical v4 transaction serialization feeding the
+  exact 15-slot instance vector, `build_zk_spend_v4` and `confirm_zk_tx`
+  mirroring the consensus confirmation order; the wallet end-to-end cycle
+  is green at mainnet tree depth 2^32.
+
+### ghost-consensus (v4 consensus layer)
+
+- `accept_transaction` validates a v4 spend in the normative order [S4 9]:
+  parse, proof verify, balance and binding signature, nullifier seen-set,
+  tree root, fee floor, commit - with zero state mutation before ALL
+  checks pass.
+- Activation-height gate: after `CONSENSUS_V4_ACTIVATION_HEIGHT` only v4
+  transactions are accepted (v3 rejected; a v4 transaction earlier than
+  the height is rejected as EarlyV4; legacy structure remains valid only
+  before activation).
+- `ConsensusParams` / `ConsensusState` (commitment tree + nullifier
+  seen-set), Accept/Reject taxonomy, and the `confirm_v4_consensus` state
+  transition.
+
+### ghost-node (daemon)
+
+- `submit_transaction` routes every incoming transaction through consensus
+  `accept_transaction`; invalid transactions are rejected before any state
+  effect (rejections surface as `TxRejected`), and the daemon exposes its
+  `ConsensusParams` / `ConsensusState` for introspection.
 
 ### ghost-bridge (Monero bridge)
 
@@ -138,6 +178,9 @@ cargo test --workspace
 # real (non-mock) IPA prover tests:
 cargo test -p ghost-zk --features real-prover
 
+# prover benchmark - full v4 spend at 2^32 leaves (real IPA):
+cargo bench -p ghost-zk --features real-prover --bench prover
+
 # contracts (Foundry):
 forge build --root contracts
 forge test --root contracts
@@ -147,14 +190,19 @@ Test status (zero warnings in all crates):
 
 | Crate | Tests |
 |-------|-------|
-| ghost-zk | 10 default + 11 real-prover + 1 mainnet-depth mock (k=12, 2342 rows) |
-| ghost-wallet | 7 fast + 2 mainnet-depth end-to-end |
+| ghost-zk | 44 default + 2 real-prover (+1 ignored mainnet-depth mock, k = 12) |
+| ghost-wallet | 14 fast + 2 mainnet-depth end-to-end (ignored by default; run with `cargo test -p ghost-wallet -- --ignored`) |
+| ghost-consensus | 10 (real IPA proofs, depth 8) |
+| ghost-node | 7 |
 | ghost-bridge | 27 |
-| ghost-dex | 13 |
-| ghost-network | 8 |
+| ghost-dex | 14 |
+| ghost-network | 10 |
 
-A real spend proof at mainnet tree depth (2^32 leaves) proves and verifies
-in about 2.1 s.
+Performance: a membership-only spend proof at mainnet tree depth (2^32
+leaves) proves and verifies in about 2.1 s. The full v4 spend pipeline
+(keygen + prove, real IPA, k = 13) currently benches at about 16 s against
+the 10 s budget [S4 8]; the optimization (EC-chain column count,
+membership-path count) is queued for v0.5 - see `benches/prover.rs`.
 
 ## Sepolia deployment (zero-typing PowerShell chain)
 
@@ -164,8 +212,9 @@ in about 2.1 s.
    cross-checks, persists the address to `contracts/wghost.address`.
 
 Also at the repo root: `fix_deployer_key.ps1` (zero-input deployer key
-rotation with cross-verification) and `publish_ghost.ps1` (safe one-command
-GitHub publish with secret gates and no force-push).
+rotation with cross-verification), `publish_ghost.ps1` (safe one-command
+GitHub publish with secret gates and no force-push) and `release_ghost.ps1`
+(tag + GitHub release publisher).
 
 ## Security notes
 
@@ -178,13 +227,16 @@ GitHub publish with secret gates and no force-push).
   artifacts) plus an index-level secret gate that untracks offenders while
   keeping the files on disk.
 - Commits use the noreply GitHub identity.
+- Consensus v4 mutates state only after every validation step passes; the
+  nullifier seen-set prevents replay; the activation-height gate prevents
+  mixed v3/v4 replay across the fork boundary.
 - The wGHOST mint is quorum-gated; the testnet quorum is 1/1. An external
   audit is REQUIRED before any mainnet use; testnet keys are throwaway.
 
-## Roadmap (v0.4)
+## Roadmap (v0.5)
 
-- Value conservation enforced in-circuit (accumulator per the complete
-  FCMP++ design); nullifier-reuse prevention is currently consensus-side.
+- Prover optimization toward the 10 s budget [S4 8]: EC-chain column count
+  and membership-path count in the v4 spend circuit.
 - Hashlock-in-circuit and CLSAG adaptor signatures for on-chain swap
   enforcement (Refund frames are notices in v0.1).
 - Peer discovery/gossip and DLEq-bound peer authentication for
@@ -197,9 +249,8 @@ GitHub publish with secret gates and no force-push).
 `CHANGELOG.md` follows the
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and
 [Semantic Versioning](https://semver.org/). The current release is
-**v0.3.0** (first public release).
+**v0.4.0** (value conservation release).
 
 ## License
 
-No open-source license has been selected yet; all rights are reserved by the
-author until a LICENSE file is added.
+Apache-2.0 - see the `LICENSE` file at the repository root.

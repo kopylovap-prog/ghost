@@ -1,3 +1,82 @@
+## [0.4.0] - 2026-10-20
+
+Value conservation release: the full FCMP++-style v4 spend pipeline now
+enforces in-circuit balance end to end - zk circuit, transaction
+serialization, wallet, and consensus - with an activation-height gate, a
+prover benchmark, and a documentation refresh
+(docs/specs/v0.4-value-conservation.md, sections [S4 1-13]).
+
+### Added
+
+#### crates/ghost-zk - v4 gates and the full spend circuit (phases 1a, 1b, 2)
+- v4 foundations: rc-limb range-check gates, v4-hash gates, generator test
+  vectors.
+- Fixed-base scalar-mul chip: RC = v*V + r*R and the H_leaf*G3 term are
+  computed in-circuit as public instances over hashgen constants - no
+  in-curve arithmetic needed, the bit columns are shared with the
+  range-checked limbs.
+- Nullifier-v4 linking, leaf-v2 note commitments, and the value
+  commitment primitives (value_commit / value_gen / blind_gen).
+- V4SpendCircuit: 1-in / 2-out spend topology (MAX_IN = 2, MAX_OUT = 4)
+  with balance padding; 15-slot normative public instance vector
+  [root, N_0..N_1, RC_in_0..RC_in_1, RC_out_0..RC_out_3]; k = 13 at
+  mainnet tree depth 2^32; binding signature over the instance vector
+  (unbalanced or tampered spends fail verification).
+- v4_prover: normative instance reconstruction (spend_instances), a
+  mock-prover self-check available WITHOUT the real-prover feature, and
+  real IPA prove_v4 / verify_v4 (params + keygen + create_proof /
+  params + vk rebuild + verify_proof).
+- acc_root_point bridge between the Fp accumulator root and the
+  curve-point form consumed by sighash_v4.
+
+#### crates/ghost-wallet - tx v4 serialization and zk-native flow (phase 3)
+- tx_v4.rs: canonical v4 transaction serialization feeding the exact
+  15-slot instance vector; build_zk_spend_v4 and confirm_zk_tx mirroring
+  the consensus confirmation order.
+- The wallet end-to-end cycle (build / prove / verify / confirm) is green
+  at mainnet tree depth 2^32.
+
+#### crates/ghost-consensus - consensus v4 validation (phase 4)
+- accept_transaction: v4 validation order [S4 9] - parse, proof verify,
+  balance and binding signature, nullifier seen-set, tree root, fee
+  floor, commit - with zero state mutation before ALL checks pass.
+- Activation-height gate: after CONSENSUS_V4_ACTIVATION_HEIGHT only v4
+  transactions are accepted (v3 rejected; a v4 transaction earlier than
+  the height is rejected as EarlyV4; legacy structure remains valid only
+  before activation).
+- ConsensusParams (with testnet()) and ConsensusState (mainnet(), tree +
+  seen-set), the Accept/Reject taxonomy, and confirm_v4_consensus.
+
+#### crates/ghost-node - daemon submit gate (phase 4)
+- submit_transaction routes every incoming transaction through consensus
+  accept_transaction; rejections surface as TxRejected before any pool or
+  state effect; the daemon exposes params() and consensus().
+
+#### repository - bench, docs, release (phase 5)
+- crates/ghost-zk/benches/prover.rs: deterministic full-pipeline v4 spend
+  benchmark (prove_v4 / verify_v4 stage timing) at 2^32 leaves; zero new
+  dependencies; run with
+  `cargo bench -p ghost-zk --features real-prover --bench prover`.
+- README.md refreshed for v0.4.0 (v4 sections, bench, updated test
+  matrix, Apache-2.0 license note); workspace version bumped to 0.4.0;
+  CHANGELOG updated; v0.4.0 tag and GitHub release published via the
+  release_ghost.ps1 path.
+
+### Performance
+
+- Full v4 spend at 2^32 leaves (real IPA, k = 13): the new bench measures
+  the prove pipeline at about 16 s on the reference machine against the
+  10 s budget [S4 8]; the optimization work (EC-chain column count,
+  membership-path count) is queued for v0.5. The membership-only v0.3.0
+  baseline (2.1 s prove + verify) is unchanged.
+
+### Security
+
+- Consensus v4 mutates state only after every validation step passes;
+  nullifier replay is rejected via the seen-set; the fee floor is
+  enforced at consensus level; the activation-height gate prevents mixed
+  v3/v4 replay across the fork boundary.
+
 # Changelog
 
 All notable changes to the **Ghost** monorepo are documented in this file.

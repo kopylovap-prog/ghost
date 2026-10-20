@@ -553,7 +553,7 @@ dependencies = [
 
 [[package]]
 name = "ghost-bridge"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "blake3",
  "curve25519-dalek",
@@ -568,7 +568,7 @@ dependencies = [
 
 [[package]]
 name = "ghost-cli"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -584,17 +584,19 @@ dependencies = [
 
 [[package]]
 name = "ghost-consensus"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "blake3",
  "borsh",
  "ghost-crypto",
+ "ghost-wallet",
+ "ghost-zk",
  "thiserror",
 ]
 
 [[package]]
 name = "ghost-crypto"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "blake3",
  "curve25519-dalek",
@@ -607,7 +609,7 @@ dependencies = [
 
 [[package]]
 name = "ghost-dex"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "hex",
  "k256",
@@ -620,7 +622,7 @@ dependencies = [
 
 [[package]]
 name = "ghost-light-client"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "blake3",
  "borsh",
@@ -629,7 +631,7 @@ dependencies = [
 
 [[package]]
 name = "ghost-miner"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "blake3",
@@ -642,7 +644,7 @@ dependencies = [
 
 [[package]]
 name = "ghost-network"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "ghost-bridge",
  "serde",
@@ -650,10 +652,11 @@ dependencies = [
 
 [[package]]
 name = "ghost-node"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "clap",
  "dirs",
+ "ghost-consensus",
  "ghost-network",
  "thiserror",
  "tokio",
@@ -663,7 +666,7 @@ dependencies = [
 
 [[package]]
 name = "ghost-wallet"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "ghost-crypto",
  "ghost-zk",
@@ -672,7 +675,7 @@ dependencies = [
 
 [[package]]
 name = "ghost-zk"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "blake3",
  "ff",
