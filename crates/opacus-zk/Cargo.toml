@@ -1,6 +1,6 @@
 [package]
 name = "opacus-zk"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 description = "Halo2-based FCMP-style zero-knowledge membership proofs for Ghost"
 

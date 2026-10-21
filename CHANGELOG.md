@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-21
+
+- daemon binary renamed to opacusd; daemon struct renamed to OpacusDaemon (crate opacus-node)
+- workspace version bump 0.4.0 -> 0.5.0
 ### Changed
 - Rebrand: the workspace moved to the opacusio GitHub org and every crate
   was renamed `ghost-*` -> `opacus-*` (packages, libraries, the`r
