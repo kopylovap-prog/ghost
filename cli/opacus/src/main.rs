@@ -3,7 +3,7 @@
 use clap::{Parser, Subcommand};
 use opacus_crypto::keys::SpendingKey;
 use opacus_miner::{MinerConfig, MinerEngine, MiningMode};
-use opacus_node::{DaemonConfig, GhostDaemon};
+use opacus_node::{DaemonConfig, OpacusDaemon};
 use opacus_wallet::LightWallet;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
@@ -82,7 +82,7 @@ async fn main() -> anyhow::Result<()> {
 async fn start_node(tor: bool) -> anyhow::Result<()> {
     println!("Starting Ghost Node... (Ctrl+C to stop)");
     let config = DaemonConfig { use_tor: tor, ..Default::default() };
-    let mut daemon = GhostDaemon::new(config)?;
+    let mut daemon = OpacusDaemon::new(config)?;
     daemon.run().await?;
     Ok(())
 }

@@ -35,14 +35,14 @@ impl Default for DaemonConfig {
     }
 }
 
-pub struct GhostDaemon {
+pub struct OpacusDaemon {
     config: DaemonConfig,
     height: u64,
     consensus: ConsensusState,
     params: ConsensusParams,
 }
 
-impl GhostDaemon {
+impl OpacusDaemon {
     pub fn new(config: DaemonConfig) -> Result<Self, DaemonError> {
         std::fs::create_dir_all(&config.data_dir)
             .map_err(|e| DaemonError::InitFailed(e.to_string()))?;
@@ -104,7 +104,7 @@ impl GhostDaemon {
 mod tests {
     use super::*;
 
-    fn tmp_daemon() -> GhostDaemon {
+    fn tmp_daemon() -> OpacusDaemon {
         let dir = std::env::temp_dir().join(format!(
             "ghost-daemon-test-{}-{}",
             std::process::id(),
@@ -113,7 +113,7 @@ mod tests {
                 .expect("clock")
                 .as_nanos()
         ));
-        GhostDaemon::new(DaemonConfig {
+        OpacusDaemon::new(DaemonConfig {
             data_dir: dir,
             ..DaemonConfig::default()
         })

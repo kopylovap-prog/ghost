@@ -50,7 +50,7 @@ Write-Text (Join-Path $ProjectRoot "crates\opacus-bridge\src\swap_p2p.rs") @'
 //!
 //! Transport-agnostic coordination protocol on top of [`crate::xmr_swap`]:
 //! peers exchange JSON frames over any byte pipe (the `u32`-LE length prefix
-//! makes it stream-safe for TCP / libp2p / ghostd's transport later).
+//! makes it stream-safe for TCP / libp2p / opacusd's transport later).
 //!
 //! Message flow (Maker sells GHOST, Taker sells XMR):
 //!
@@ -998,4 +998,4 @@ Write-Host "    SwapNet session registry: tamper/duplicate/replay/preimage/deadl
 Write-Host "  contracts/wGHOST.s.sol + foundry.toml: forge script wGHOSTDeploy (anvil defaults / Sepolia env)"
 Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "  - contracts: forge install foundry-rs/forge-std && forge build && forge test"
-Write-Host "  - wire SwapNet::receive_frame into ghostd's P2P dispatch (adapter needs your msg enum)"
+Write-Host "  - wire SwapNet::receive_frame into opacusd's P2P dispatch (adapter needs your msg enum)"

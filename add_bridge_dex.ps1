@@ -2302,4 +2302,4 @@ Write-Host "  opacus-dex: EIP-155 tx signer, Uniswap V2 Router calldata, wGHOST 
 Write-Host "  contracts/wGHOST.sol: deploy with forge (audit before mainnet!)"
 Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "  - deploy wGHOST to a testnet (Sepolia) via foundry, then set_wghost(addr)"
-Write-Host "  - wire swap sessions into ghostd P2P messages (offer/accept/claim)"
+Write-Host "  - wire swap sessions into opacusd P2P messages (offer/accept/claim)"

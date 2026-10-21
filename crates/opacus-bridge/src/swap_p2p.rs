@@ -2,7 +2,7 @@
 //!
 //! Transport-agnostic coordination protocol on top of [`crate::xmr_swap`]:
 //! peers exchange JSON frames over any byte pipe (the `u32`-LE length prefix
-//! makes it stream-safe for TCP / libp2p / ghostd's transport later).
+//! makes it stream-safe for TCP / libp2p / opacusd's transport later).
 //!
 //! Message flow (Maker sells GHOST, Taker sells XMR):
 //!

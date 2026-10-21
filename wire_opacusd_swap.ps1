@@ -1,8 +1,8 @@
-# wire_ghostd_swap.ps1 - wire swap sessions into ghostd (opacus-node)
-# Gives ghostd a live TCP swap node + wallet-driven lock/claim service.
+# wire_opacusd_swap.ps1 - wire swap sessions into opacusd (opacus-node)
+# Gives opacusd a live TCP swap node + wallet-driven lock/claim service.
 #
 # Run from the project root:
-#   powershell -ExecutionPolicy Bypass -File .\wire_ghostd_swap.ps1
+#   powershell -ExecutionPolicy Bypass -File .\wire_opacusd_swap.ps1
 #
 # What it does (idempotent, backups *.bak-svc):
 #   1. opacus-network/swap_node.rs -> v0.2: LIVE chain tip (set_height)
@@ -56,7 +56,7 @@ function Abort-Wiring([string]$Reason) {
 }
 
 function Print-Skeleton([string]$SrcDir) {
-    Write-Output "--- GHOSTD SKELETON BEGIN ---"
+    Write-Output "--- OPACUSD SKELETON BEGIN ---"
     if (Test-Path $SrcDir) {
         Get-ChildItem $SrcDir -Name | ForEach-Object { Write-Output ("  " + $_) }
     }
@@ -66,7 +66,7 @@ function Print-Skeleton([string]$SrcDir) {
             Get-Content $cand -TotalCount 30 | ForEach-Object { Write-Output ("  | " + $_) }
         }
     }
-    Write-Output "--- GHOSTD SKELETON END ---"
+    Write-Output "--- OPACUSD SKELETON END ---"
 }
 
 # Safe manifest check: ANY form of the key (dotted OR value) blocks insert.
@@ -115,7 +115,7 @@ function Ensure-Mod([string]$Path, [string]$ModLine) {
 function Insert-Hook([string]$Path, [string]$CallLine) {
     $lines = Read-Lines $Path
     foreach ($ln in $lines) {
-        if ($ln.Contains("(wire_ghostd_swap)")) { return "present" }
+        if ($ln.Contains("(wire_opacusd_swap)")) { return "present" }
     }
     $n = $lines.Count
     for ($i = 0; $i -lt $n; $i++) {
@@ -182,8 +182,8 @@ $SwapNodeRs = @'
 //!  -> claim XMR with the revealed preimage
 //! ```
 //!
-//! v0.2 (ghostd wiring): the node holds a LIVE chain tip
-//! ([`SwapNode::set_height`]) instead of a frozen config height - ghostd
+//! v0.2 (opacusd wiring): the node holds a LIVE chain tip
+//! ([`SwapNode::set_height`]) instead of a frozen config height - opacusd
 //! feeds it on every accepted block and every protocol step reads the
 //! fresh value.
 //!
@@ -200,7 +200,7 @@ use std::time::Duration;
 
 use crate::p2p::NetworkConfig;
 
-// Re-exports for embedders (ghostd wiring): the swap service in opacus-node
+// Re-exports for embedders (opacusd wiring): the swap service in opacus-node
 // consumes the protocol types through opacus-network only, so opacus-node
 // needs NO direct opacus-bridge dependency.
 pub use opacus_bridge::swap_p2p::{
@@ -318,7 +318,7 @@ pub struct SwapNodeConfig {
     /// Hard cap for one incoming frame (prefix + body).
     pub max_frame_len: usize,
     /// INITIAL block height; afterwards the live value is driven by
-    /// [`SwapNode::set_height`] (ghostd feeds it per accepted block).
+    /// [`SwapNode::set_height`] (opacusd feeds it per accepted block).
     pub current_height: u64,
 }
 
@@ -350,7 +350,7 @@ impl SwapNodeConfig {
 // Events
 // ---------------------------------------------------------------------------
 
-/// Bounded observability log (newest last). Tests and the ghostd wiring
+/// Bounded observability log (newest last). Tests and the opacusd wiring
 /// read it; a real daemon will forward it to logging.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeEvent {
@@ -424,7 +424,7 @@ impl SwapNode {
         &self.cfg
     }
 
-    /// Feed the live chain tip (ghostd calls this on every accepted block).
+    /// Feed the live chain tip (opacusd calls this on every accepted block).
     /// Later protocol steps (inbound frame validation, acceptance
     /// timestamps, fund/claim deadlines) read the fresh value.
     pub fn set_height(&self, h: u64) {
@@ -436,7 +436,7 @@ impl SwapNode {
         self.height.load(Ordering::Relaxed)
     }
 
-    /// Shared handle to the session registry (wallet / ghostd integration:
+    /// Shared handle to the session registry (wallet / opacusd integration:
     /// publish_xmr_lock, publish_ghost_lock, session inspection).
     pub fn net(&self) -> Arc<Mutex<SwapNet>> {
         Arc::clone(&self.net)
@@ -661,7 +661,7 @@ mod tests {
         assert_eq!(d.current_height, 0);
     }
 
-    /// ghostd wiring: heights are fed LIVE via set_height; an inbound Offer
+    /// opacusd wiring: heights are fed LIVE via set_height; an inbound Offer
     /// is stamped with the fresh tip and the fund deadline is gated by it.
     #[test]
     fn live_height_feed_gates_incoming_swap() {
@@ -699,7 +699,7 @@ mod tests {
         assert_eq!(t2.session.phase, Phase::XmrLocked);
     }
 
-    /// ghostd scenario: both nodes start at height 0 (pre-sync) and get
+    /// opacusd scenario: both nodes start at height 0 (pre-sync) and get
     /// LIVE tips fed before the swap; the full TCP choreography completes.
     #[test]
     fn two_nodes_zero_start_live_heights_full_swap() {
@@ -716,7 +716,7 @@ mod tests {
             .connect(&maker.local_addr().unwrap().to_string())
             .unwrap();
 
-        // ghostd feeds live tips before the swap starts
+        // opacusd feeds live tips before the swap starts
         maker.set_height(3000);
         taker.set_height(3000);
 
@@ -980,11 +980,11 @@ mod tests {
 '@
 
 $SwapServiceRs = @'
-//! ghostd swap service: embeds the TCP swap node
+//! opacusd swap service: embeds the TCP swap node
 //! ([`opacus_network::swap_node`]) into the daemon and exposes the
 //! wallet-driven swap choreography.
 //!
-//! Wiring - three one-liners inside ghostd:
+//! Wiring - three one-liners inside opacusd:
 //!
 //! ```text
 //! opacus_node::swap_service::autostart_from_env();  // fn main: bind + listener + dials
@@ -1018,7 +1018,7 @@ use opacus_network::swap_node::{
     NetError, NodeEvent, Offer, SwapNode, SwapNodeConfig, TrackedSession,
 };
 
-/// The swap node embedded in ghostd plus the live height feed.
+/// The swap node embedded in opacusd plus the live height feed.
 pub struct SwapService {
     node: Arc<SwapNode>,
     height: Arc<AtomicU64>,
@@ -1053,7 +1053,7 @@ impl SwapService {
         self.height.load(Ordering::Relaxed)
     }
 
-    /// ghostd feeds the accepted tip here (block/header loop).
+    /// opacusd feeds the accepted tip here (block/header loop).
     pub fn set_height(&self, h: u64) {
         self.height.store(h, Ordering::Relaxed);
         self.node.set_height(h);
@@ -1163,7 +1163,7 @@ pub fn feed_height(h: u64) {
     }
 }
 
-/// One-line ghostd main hook: start the swap node from env knobs.
+/// One-line opacusd main hook: start the swap node from env knobs.
 /// Returns true if a node is now running (fresh or already started).
 pub fn autostart_from_env() -> bool {
     if global().is_some() {
@@ -1201,13 +1201,13 @@ pub fn autostart_from_env() -> bool {
                 svc.set_height(height);
             }
             match svc.node().local_addr() {
-                Ok(a) => println!("[ghostd-swap] listening on {a} (height {})", svc.height()),
-                Err(_) => println!("[ghostd-swap] node started (height {})", svc.height()),
+                Ok(a) => println!("[opacusd-swap] listening on {a} (height {})", svc.height()),
+                Err(_) => println!("[opacusd-swap] node started (height {})", svc.height()),
             }
             true
         }
         Err(e) => {
-            println!("[ghostd-swap] failed to start: {e}");
+            println!("[opacusd-swap] failed to start: {e}");
             false
         }
     }
@@ -1298,7 +1298,7 @@ mod tests {
     }
 
     /// The live tip flows service -> node -> session machine, and the fund
-    /// deadline is gated by it (this is why ghostd must feed heights).
+    /// deadline is gated by it (this is why opacusd must feed heights).
     #[test]
     fn live_height_flows_through_service() {
         let svc = SwapService::spawn(&net_cfg()).unwrap();
@@ -1327,7 +1327,7 @@ mod tests {
         maker.node().connect(&taddr).unwrap();
         taker.node().connect(&maddr).unwrap();
 
-        // ghostd feeds live tips on both sides
+        // opacusd feeds live tips on both sides
         maker.set_height(1000);
         taker.set_height(1000);
 
@@ -1393,7 +1393,7 @@ mod tests {
 # main
 # ---------------------------------------------------------------------------
 
-Write-Output "=== wire_ghostd_swap: wire swap sessions into ghostd ==="
+Write-Output "=== wire_opacusd_swap: wire swap sessions into opacusd ==="
 
 $NetDir = Join-Path $ProjectRoot "crates\opacus-network"
 $NodeDir = Join-Path $ProjectRoot "crates\opacus-node"
@@ -1416,7 +1416,7 @@ if (Test-Path $SwapNodePath) {
 Write-TextFull $SwapNodePath $SwapNodeRs
 Write-Output ("  written: {0} bytes" -f ((Get-Item $SwapNodePath).Length))
 
-# --- STEP 2: swap_service.rs (ghostd swap service) --------------------------
+# --- STEP 2: swap_service.rs (opacusd swap service) --------------------------
 $libPath = Join-Path $NodeSrc "lib.rs"
 $mainPath = Join-Path $NodeSrc "main.rs"
 $haveLib = Test-Path $libPath
@@ -1469,11 +1469,11 @@ if ($haveLib) {
     Write-Output ("  bin entry: {0}" -f $st)
 }
 
-# --- STEP 5: ghostd entry hook ------------------------------------------------
-Write-Output "STEP 5: autostart hook in the ghostd entry"
+# --- STEP 5: opacusd entry hook ------------------------------------------------
+Write-Output "STEP 5: autostart hook in the opacusd entry"
 $prefix = "crate::"
 if ($haveLib) { $prefix = "opacus_node::" }
-$callLine = "    " + $prefix + "swap_service::autostart_from_env(); // ghostd swap service (wire_ghostd_swap)"
+$callLine = "    " + $prefix + "swap_service::autostart_from_env(); // opacusd swap service (wire_opacusd_swap)"
 $entry = $null
 if ($haveMain) { $entry = $mainPath } elseif ($binEntry) { $entry = $binEntry }
 if ($entry) {
@@ -1501,7 +1501,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Output "NETWORK SWAP REGRESSION PASSED (10 tests: live height feed via set_height)"
 
-# --- STEP 7: ghostd suite -----------------------------------------------------
+# --- STEP 7: opacusd suite -----------------------------------------------------
 Write-Output "STEP 7: cargo test -p opacus-node --release"
 $nodeOut = cmd /c "cargo test -p opacus-node --release 2>&1"
 $nodeOut | ForEach-Object { Write-Output $_ }
@@ -1511,7 +1511,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Output ""
-Write-Output "GHOSTD SWAP WIRING COMPLETE - swap service live in ghostd"
+Write-Output "OPACUSD SWAP WIRING COMPLETE - swap service live in opacusd"
 Write-Output ""
 Write-Output "What you got:"
 Write-Output "  opacus-network/swap_node.rs v0.2: SwapNode::set_height()/height() -"
@@ -1520,7 +1520,7 @@ Write-Output "  opacus-node/src/swap_service.rs: SwapService (node + height feed
 Write-Output "    global registry: init_global / global / feed_height / autostart_from_env"
 Write-Output "    wallet-driven choreography: publish_offer / xmr_lock / ghost_lock /"
 Write-Output "    refund_notice / session / session_count / events"
-Write-Output "  ghostd main: autostart_from_env() runs the swap node on every start"
+Write-Output "  opacusd main: autostart_from_env() runs the swap node on every start"
 Write-Output ""
 Write-Output "How to drive it:"
 Write-Output "  feed heights in the block/header loop:  opacus_node::swap_service::feed_height(tip);"

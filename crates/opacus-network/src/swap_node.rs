@@ -28,8 +28,8 @@
 //!  -> claim XMR with the revealed preimage
 //! ```
 //!
-//! v0.2 (ghostd wiring): the node holds a LIVE chain tip
-//! ([`SwapNode::set_height`]) instead of a frozen config height - ghostd
+//! v0.2 (opacusd wiring): the node holds a LIVE chain tip
+//! ([`SwapNode::set_height`]) instead of a frozen config height - opacusd
 //! feeds it on every accepted block and every protocol step reads the
 //! fresh value.
 //!
@@ -46,7 +46,7 @@ use std::time::Duration;
 
 use crate::p2p::NetworkConfig;
 
-// Re-exports for embedders (ghostd wiring): the swap service in opacus-node
+// Re-exports for embedders (opacusd wiring): the swap service in opacus-node
 // consumes the protocol types through opacus-network only, so opacus-node
 // needs NO direct opacus-bridge dependency.
 pub use opacus_bridge::swap_p2p::{
@@ -164,7 +164,7 @@ pub struct SwapNodeConfig {
     /// Hard cap for one incoming frame (prefix + body).
     pub max_frame_len: usize,
     /// INITIAL block height; afterwards the live value is driven by
-    /// [`SwapNode::set_height`] (ghostd feeds it per accepted block).
+    /// [`SwapNode::set_height`] (opacusd feeds it per accepted block).
     pub current_height: u64,
 }
 
@@ -196,7 +196,7 @@ impl SwapNodeConfig {
 // Events
 // ---------------------------------------------------------------------------
 
-/// Bounded observability log (newest last). Tests and the ghostd wiring
+/// Bounded observability log (newest last). Tests and the opacusd wiring
 /// read it; a real daemon will forward it to logging.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeEvent {
@@ -270,7 +270,7 @@ impl SwapNode {
         &self.cfg
     }
 
-    /// Feed the live chain tip (ghostd calls this on every accepted block).
+    /// Feed the live chain tip (opacusd calls this on every accepted block).
     /// Later protocol steps (inbound frame validation, acceptance
     /// timestamps, fund/claim deadlines) read the fresh value.
     pub fn set_height(&self, h: u64) {
@@ -282,7 +282,7 @@ impl SwapNode {
         self.height.load(Ordering::Relaxed)
     }
 
-    /// Shared handle to the session registry (wallet / ghostd integration:
+    /// Shared handle to the session registry (wallet / opacusd integration:
     /// publish_xmr_lock, publish_ghost_lock, session inspection).
     pub fn net(&self) -> Arc<Mutex<SwapNet>> {
         Arc::clone(&self.net)
@@ -507,7 +507,7 @@ mod tests {
         assert_eq!(d.current_height, 0);
     }
 
-    /// ghostd wiring: heights are fed LIVE via set_height; an inbound Offer
+    /// opacusd wiring: heights are fed LIVE via set_height; an inbound Offer
     /// is stamped with the fresh tip and the fund deadline is gated by it.
     #[test]
     fn live_height_feed_gates_incoming_swap() {
@@ -545,7 +545,7 @@ mod tests {
         assert_eq!(t2.session.phase, Phase::XmrLocked);
     }
 
-    /// ghostd scenario: both nodes start at height 0 (pre-sync) and get
+    /// opacusd scenario: both nodes start at height 0 (pre-sync) and get
     /// LIVE tips fed before the swap; the full TCP choreography completes.
     #[test]
     fn two_nodes_zero_start_live_heights_full_swap() {
@@ -562,7 +562,7 @@ mod tests {
             .connect(&maker.local_addr().unwrap().to_string())
             .unwrap();
 
-        // ghostd feeds live tips before the swap starts
+        // opacusd feeds live tips before the swap starts
         maker.set_height(3000);
         taker.set_height(3000);
 

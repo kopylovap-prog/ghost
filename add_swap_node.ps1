@@ -56,7 +56,7 @@ if ((Test-Path $p2pPath) -and (Select-String -Path $p2pPath -Pattern 'ghost-swap
 //!
 //! Transport-agnostic coordination protocol on top of [`crate::xmr_swap`]:
 //! peers exchange JSON frames over any byte pipe (the `u32`-LE length prefix
-//! makes it stream-safe for TCP / libp2p / ghostd's transport later).
+//! makes it stream-safe for TCP / libp2p / opacusd's transport later).
 //!
 //! Message flow (Maker sells GHOST, Taker sells XMR):
 //!
@@ -953,7 +953,7 @@ Write-Text (Join-Path $ProjectRoot "crates\opacus-network\src\swap_node.rs") @'
 //! v0.1 limitations: direct 1:1 dials only (no gossip/discovery - the full
 //! libp2p stack lands in v0.3); a protocol violation closes the connection
 //! silently (the wire protocol has no Error frame yet); block heights for
-//! incoming frames come from [`SwapNodeConfig`] (the ghostd wiring will
+//! incoming frames come from [`SwapNodeConfig`] (the opacusd wiring will
 //! feed live heights); Refund frames are notices, deadline enforcement
 //! stays local via the session state machine.
 
@@ -1107,7 +1107,7 @@ impl SwapNodeConfig {
 // Events
 // ---------------------------------------------------------------------------
 
-/// Bounded observability log (newest last). Tests and the ghostd wiring
+/// Bounded observability log (newest last). Tests and the opacusd wiring
 /// read it; a real daemon will forward it to logging.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeEvent {
@@ -1177,7 +1177,7 @@ impl SwapNode {
         &self.cfg
     }
 
-    /// Shared handle to the session registry (wallet / ghostd integration:
+    /// Shared handle to the session registry (wallet / opacusd integration:
     /// publish_xmr_lock, publish_ghost_lock, session inspection).
     pub fn net(&self) -> Arc<Mutex<SwapNet>> {
         Arc::clone(&self.net)
@@ -1710,6 +1710,6 @@ Write-Host "    SwapNodeConfig::from_network(&NetworkConfig) reuses your existin
 Write-Host "  tests: two_nodes_full_swap_over_tcp - Offer -> Accept -> XmrLocked ->"
 Write-Host "    GhostLocked (preimage) -> Claim across two live nodes on 127.0.0.1"
 Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  - ghostd wiring: SwapNodeConfig::from_network(&cfg), SwapNode::start(),"
+Write-Host "  - opacusd wiring: SwapNodeConfig::from_network(&cfg), SwapNode::start(),"
 Write-Host "    feed live block heights, drive lock/claim via node.net() from the wallet"
 Write-Host "  - run integrate_wallet_tx.ps1 if not yet done (shielded tx flow)"

@@ -1,11 +1,11 @@
-//! ghostd - node daemon
+//! opacusd - node daemon
 
 use clap::Parser;
-use opacus_node::{DaemonConfig, GhostDaemon};
+use opacus_node::{DaemonConfig, OpacusDaemon};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "ghostd", about = "Ghost full node daemon", version)]
+#[command(name = "opacusd", about = "Ghost full node daemon", version)]
 struct Args {
     #[arg(short, long, default_value = "~/.ghost")]
     data_dir: String,
@@ -19,7 +19,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
-    opacus_node::swap_service::autostart_from_env(); // ghostd swap service (wire_ghostd_swap)
+    opacus_node::swap_service::autostart_from_env(); // opacusd swap service (wire_opacusd_swap)
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -38,6 +38,6 @@ async fn main() {
         ..Default::default()
     };
 
-    let mut daemon = GhostDaemon::new(config).expect("failed to start daemon");
+    let mut daemon = OpacusDaemon::new(config).expect("failed to start daemon");
     daemon.run().await.expect("daemon crashed");
 }

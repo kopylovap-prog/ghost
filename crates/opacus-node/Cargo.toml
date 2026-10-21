@@ -8,7 +8,7 @@ name = "opacus_node"
 path = "src/lib.rs"
 
 [[bin]]
-name = "ghostd"
+name = "opacusd"
 path = "src/main.rs"
 
 [dependencies]

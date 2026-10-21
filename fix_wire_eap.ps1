@@ -2,7 +2,7 @@
 # fix_wire_eap.ps1  (ghost project - kopylovap-prog/ghost)
 #
 # WHAT HAPPENED
-#   wire_ghostd_swap.ps1 aborted at STEP 6:
+#   wire_opacusd_swap.ps1 aborted at STEP 6:
 #     $netOut = cargo test -p opacus-network --release 2>&1
 #     -> NativeCommandError / RemoteException on "Compiling opacus-network"
 #   Root cause (PowerShell 5.1 quirk, NOT a cargo failure):
@@ -20,7 +20,7 @@
 #     $netOut = cmd /c "cargo test -p opacus-network --release 2>&1"
 #
 #   - idempotent: transformed lines no longer match; safe to re-run
-#   - backup: wire_ghostd_swap.ps1.bak-eap1 (kept, never overwritten)
+#   - backup: wire_opacusd_swap.ps1.bak-eap1 (kept, never overwritten)
 #   - pure ASCII, no here-strings, run with -File
 # =============================================================================
 
@@ -28,7 +28,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $ProjectRoot = "C:\Users\Mi\projects\ghost"
-$Target = Join-Path $ProjectRoot "wire_ghostd_swap.ps1"
+$Target = Join-Path $ProjectRoot "wire_opacusd_swap.ps1"
 
 if (-not (Test-Path -LiteralPath $Target)) {
     Write-Output "[!] NOT FOUND: $Target"
@@ -114,13 +114,13 @@ Write-Output ""
 Write-Output "WIRE EAP FIX DONE - cargo stderr is now PowerShell 5.1 safe"
 Write-Output ""
 Write-Output "What you got:"
-Write-Output "  wire_ghostd_swap.ps1 STEP 6 + STEP 7: cargo test captures routed"
+Write-Output "  wire_opacusd_swap.ps1 STEP 6 + STEP 7: cargo test captures routed"
 Write-Output "    through cmd /c - 'Compiling...' stderr lines can no longer"
 Write-Output "    raise NativeCommandError under ErrorActionPreference=Stop"
 Write-Output "  exit codes still propagate: LASTEXITCODE = cargo exit code"
-Write-Output "  backup: wire_ghostd_swap.ps1.bak-eap1 (original kept)"
+Write-Output "  backup: wire_opacusd_swap.ps1.bak-eap1 (original kept)"
 Write-Output ""
 Write-Output "Next steps:"
-Write-Output "  powershell -ExecutionPolicy Bypass -File .\wire_ghostd_swap.ps1"
+Write-Output "  powershell -ExecutionPolicy Bypass -File .\wire_opacusd_swap.ps1"
 Write-Output "  (steps 1-5 are idempotent: markers + .bak-svc backups)"
 Write-Output "  paste back: STEP 6 + STEP 7 test output and the final banner"

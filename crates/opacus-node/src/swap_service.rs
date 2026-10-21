@@ -1,8 +1,8 @@
-//! ghostd swap service: embeds the TCP swap node
+//! opacusd swap service: embeds the TCP swap node
 //! ([`opacus_network::swap_node`]) into the daemon and exposes the
 //! wallet-driven swap choreography.
 //!
-//! Wiring - three one-liners inside ghostd:
+//! Wiring - three one-liners inside opacusd:
 //!
 //! ```text
 //! opacus_node::swap_service::autostart_from_env();  // fn main: bind + listener + dials
@@ -36,7 +36,7 @@ use opacus_network::swap_node::{
     NetError, NodeEvent, Offer, SwapNode, SwapNodeConfig, TrackedSession,
 };
 
-/// The swap node embedded in ghostd plus the live height feed.
+/// The swap node embedded in opacusd plus the live height feed.
 pub struct SwapService {
     node: Arc<SwapNode>,
     height: Arc<AtomicU64>,
@@ -71,7 +71,7 @@ impl SwapService {
         self.height.load(Ordering::Relaxed)
     }
 
-    /// ghostd feeds the accepted tip here (block/header loop).
+    /// opacusd feeds the accepted tip here (block/header loop).
     pub fn set_height(&self, h: u64) {
         self.height.store(h, Ordering::Relaxed);
         self.node.set_height(h);
@@ -181,7 +181,7 @@ pub fn feed_height(h: u64) {
     }
 }
 
-/// One-line ghostd main hook: start the swap node from env knobs.
+/// One-line opacusd main hook: start the swap node from env knobs.
 /// Returns true if a node is now running (fresh or already started).
 pub fn autostart_from_env() -> bool {
     if global().is_some() {
@@ -219,13 +219,13 @@ pub fn autostart_from_env() -> bool {
                 svc.set_height(height);
             }
             match svc.node().local_addr() {
-                Ok(a) => println!("[ghostd-swap] listening on {a} (height {})", svc.height()),
-                Err(_) => println!("[ghostd-swap] node started (height {})", svc.height()),
+                Ok(a) => println!("[opacusd-swap] listening on {a} (height {})", svc.height()),
+                Err(_) => println!("[opacusd-swap] node started (height {})", svc.height()),
             }
             true
         }
         Err(e) => {
-            println!("[ghostd-swap] failed to start: {e}");
+            println!("[opacusd-swap] failed to start: {e}");
             false
         }
     }
@@ -316,7 +316,7 @@ mod tests {
     }
 
     /// The live tip flows service -> node -> session machine, and the fund
-    /// deadline is gated by it (this is why ghostd must feed heights).
+    /// deadline is gated by it (this is why opacusd must feed heights).
     #[test]
     fn live_height_flows_through_service() {
         let svc = SwapService::spawn(&net_cfg()).unwrap();
@@ -345,7 +345,7 @@ mod tests {
         maker.node().connect(&taddr).unwrap();
         taker.node().connect(&maddr).unwrap();
 
-        // ghostd feeds live tips on both sides
+        // opacusd feeds live tips on both sides
         maker.set_height(1000);
         taker.set_height(1000);
 
