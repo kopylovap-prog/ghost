@@ -74,7 +74,9 @@ fn derive_field_elements(tag: &str, n: usize) -> Vec<Fp> {
 pub fn round_constants() -> &'static Vec<[Fp; T]> {
     ROUND_CONSTANTS.get_or_init(|| {
         let flat = derive_field_elements("rc", ROUNDS * T);
-        flat.chunks_exact(T)
+        flat.as_chunks::<T>()
+            .0
+            .iter()
             .map(|c| [c[0], c[1], c[2]])
             .collect()
     })
@@ -165,7 +167,10 @@ mod tests {
         let b = Fp::from(67890u64);
 
         // Deterministic.
-        assert_eq!(poseidon_absorb(domains()[0], a, b), poseidon_absorb(domains()[0], a, b));
+        assert_eq!(
+            poseidon_absorb(domains()[0], a, b),
+            poseidon_absorb(domains()[0], a, b)
+        );
 
         // Distinct domains give distinct hashes.
         for d in 0..4 {

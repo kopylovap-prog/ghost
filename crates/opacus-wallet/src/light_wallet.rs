@@ -107,8 +107,12 @@ impl LightWallet {
         }
     }
 
-    pub fn get_address(&self) -> &str { &self.address }
-    pub fn get_balance(&self) -> &Balance { &self.balance }
+    pub fn get_address(&self) -> &str {
+        &self.address
+    }
+    pub fn get_balance(&self) -> &Balance {
+        &self.balance
+    }
 
     pub fn add_note(&mut self, note: UnspentNote) {
         self.balance.total += note.amount;
@@ -132,7 +136,11 @@ impl LightWallet {
 
     /// Sum of unspent shielded notes.
     pub fn zk_balance(&self) -> u64 {
-        self.zk_notes.values().filter(|t| !t.spent).map(|t| t.note.value).sum()
+        self.zk_notes
+            .values()
+            .filter(|t| !t.spent)
+            .map(|t| t.note.value)
+            .sum()
     }
 
     /// `(total_tracked, spent)` zk note counts.
@@ -219,7 +227,9 @@ impl LightWallet {
 
         let mut outputs = Vec::with_capacity(payments.len());
         for p in payments {
-            let sk = p.recipient_sk.unwrap_or_else(|| fp_to_bytes(Fp::random(OsRng)));
+            let sk = p
+                .recipient_sk
+                .unwrap_or_else(|| fp_to_bytes(Fp::random(OsRng)));
             let rho = fp_to_bytes(Fp::random(OsRng));
             outputs.push(WalletNote {
                 sk,

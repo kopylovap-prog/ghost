@@ -213,13 +213,13 @@ fn state_rows(
                 || format!("state{}-r{}", k, r),
                 config.state[k],
                 base + r,
-                || s[k].clone(),
+                || s[k],
             )?;
         }
-        let iv0 = if r == 0 { in0v.clone() } else { zero() };
-        let iv1 = if r == 0 { in1v.clone() } else { zero() };
-        region.assign_advice(|| "in0", config.absorb[0], base + r, || iv0.clone())?;
-        region.assign_advice(|| "in1", config.absorb[1], base + r, || iv1.clone())?;
+        let iv0 = if r == 0 { in0v } else { zero() };
+        let iv1 = if r == 0 { in1v } else { zero() };
+        region.assign_advice(|| "in0", config.absorb[0], base + r, || iv0)?;
+        region.assign_advice(|| "in1", config.absorb[1], base + r, || iv1)?;
 
         region.assign_fixed(|| "rc0", config.rc[0], base + r, || Value::known(rcs[r][0]))?;
         region.assign_fixed(|| "rc1", config.rc[1], base + r, || Value::known(rcs[r][1]))?;
@@ -227,7 +227,12 @@ fn state_rows(
         let dom = if r == 0 { domain } else { Fp::ZERO };
         let flag = if r == 0 { Fp::ONE } else { Fp::ZERO };
         region.assign_fixed(|| "domain", config.domain, base + r, || Value::known(dom))?;
-        region.assign_fixed(|| "absorb", config.is_absorb, base + r, || Value::known(flag))?;
+        region.assign_fixed(
+            || "absorb",
+            config.is_absorb,
+            base + r,
+            || Value::known(flag),
+        )?;
 
         config.s_round.enable(region, base + r)?;
 
@@ -236,20 +241,20 @@ fn state_rows(
         let rc1 = Value::known(rcs[r][1]);
         let rc2 = Value::known(rcs[r][2]);
         let domv = Value::known(dom);
-        let u0 = s[0].clone() + iv0 + rc0;
-        let u1 = s[1].clone() + iv1 + rc1;
-        let u2 = s[2].clone() + domv + rc2;
+        let u0 = s[0] + iv0 + rc0;
+        let u1 = s[1] + iv1 + rc1;
+        let u2 = s[2] + domv + rc2;
         let fiv = |x: Value<Fp>| {
-            let a = x.clone();
-            let b = a.clone() * a;
-            b.clone() * b * x // x^5
+            let a = x;
+            let b = a * a;
+            b * b * x // x^5
         };
         let p0 = fiv(u0);
         let p1 = fiv(u1);
         let p2 = fiv(u2);
         let two = Value::known(Fp::from(2u64));
-        let n0 = p0.clone() * two.clone() + p1.clone() + p2.clone();
-        let n1 = p0.clone() + p1.clone() * two.clone() + p2.clone();
+        let n0 = p0 * two + p1 + p2;
+        let n1 = p0 + p1 * two + p2;
         let n2 = p0 + p1 + p2 * two;
         s = [n0, n1, n2];
     }
@@ -257,12 +262,8 @@ fn state_rows(
     // Final row: gate disabled, everything zeroed except the final state.
     let fr = base + ROUNDS;
     for k in 0..3 {
-        let cell = region.assign_advice(
-            || format!("state{}-final", k),
-            config.state[k],
-            fr,
-            || s[k].clone(),
-        )?;
+        let cell =
+            region.assign_advice(|| format!("state{}-final", k), config.state[k], fr, || s[k])?;
         if k == 0 {
             out_cell = Some(cell);
         }
@@ -275,7 +276,7 @@ fn state_rows(
     region.assign_fixed(|| "domain", config.domain, fr, zero)?;
     region.assign_fixed(|| "absorb", config.is_absorb, fr, zero)?;
 
-    Ok((out_cell.expect("state0 cell"), s[0].clone()))
+    Ok((out_cell.expect("state0 cell"), s[0]))
 }
 
 /// One plain permutation whose absorb inputs are constrained cells.
@@ -304,12 +305,12 @@ fn tree_step(
     sib_val: Value<Fp>,
 ) -> Result<(AssignedCell<Fp, Fp>, Value<Fp>), Error> {
     node_cell.copy_advice(|| "src-node", region, config.src[0], base)?;
-    region.assign_advice(|| "src-sib", config.src[1], base, || sib_val.clone())?;
+    region.assign_advice(|| "src-sib", config.src[1], base, || sib_val)?;
 
-    let sum = node_val.clone() + sib_val.clone();
+    let sum = node_val + sib_val;
     let prod = node_val * sib_val;
-    region.assign_advice(|| "sum", config.absorb[0], base, || sum.clone())?;
-    region.assign_advice(|| "prod", config.absorb[1], base, || prod.clone())?;
+    region.assign_advice(|| "sum", config.absorb[0], base, || sum)?;
+    region.assign_advice(|| "prod", config.absorb[1], base, || prod)?;
 
     config.s_add.enable(region, base)?;
     config.s_mul.enable(region, base)?;
@@ -375,82 +376,89 @@ impl<const DEPTH: usize> Circuit<Fp> for FcmpCircuit<DEPTH> {
         FcmpConfig::configure(meta)
     }
 
-    fn synthesize(&self, config: Self::Config, mut layouter: impl Layouter<Fp>) -> Result<(), Error> {
-        let (root_cell, nf_cell) = layouter.assign_region(|| "fcmp", |mut region| {
-            let w = self.witness.clone();
-            let mut base = 0usize;
+    fn synthesize(
+        &self,
+        config: Self::Config,
+        mut layouter: impl Layouter<Fp>,
+    ) -> Result<(), Error> {
+        let (root_cell, nf_cell) = layouter.assign_region(
+            || "fcmp",
+            |mut region| {
+                let w = self.witness.clone();
+                let mut base = 0usize;
 
-            // Witness rows (no gates enabled here).
-            let sk_val = w.clone().map(|x| x.sk);
-            let rho_val = w.clone().map(|x| x.rho);
-            let value_val = w.clone().map(|x| Fp::from(x.value));
-            let path_val = w.clone().map(|x| x.path.clone());
-            let sk_cell = region.assign_advice(|| "sk", config.src[0], base, || sk_val.clone())?;
-            let rho_cell = region.assign_advice(|| "rho", config.src[1], base, || rho_val.clone())?;
-            base += 1;
-            let value_cell =
-                region.assign_advice(|| "value", config.state[0], base, || value_val.clone())?;
-            base += 1;
+                // Witness rows (no gates enabled here).
+                let sk_val = w.clone().map(|x| x.sk);
+                let rho_val = w.clone().map(|x| x.rho);
+                let value_val = w.clone().map(|x| Fp::from(x.value));
+                let path_val = w.clone().map(|x| x.path.clone());
+                let sk_cell = region.assign_advice(|| "sk", config.src[0], base, || sk_val)?;
+                let rho_cell = region.assign_advice(|| "rho", config.src[1], base, || rho_val)?;
+                base += 1;
+                let value_cell =
+                    region.assign_advice(|| "value", config.state[0], base, || value_val)?;
+                base += 1;
 
-            // 1) pk = H_pk(sk, sk)
-            let (pk_cell, _pk_val) = perm_step(
-                &mut region,
-                &config,
-                base,
-                poseidon::domains()[poseidon::DOMAIN_PK],
-                sk_cell.clone(),
-                sk_cell,
-            )?;
-            base += ROWS_PER_PERM;
-
-            // 2) t1 = H_leaf(pk, rho)
-            let (t1_cell, _t1_val) = perm_step(
-                &mut region,
-                &config,
-                base,
-                poseidon::domains()[poseidon::DOMAIN_LEAF],
-                pk_cell.clone(),
-                rho_cell.clone(),
-            )?;
-            base += ROWS_PER_PERM;
-
-            // 3) cm = H_leaf(value, t1)
-            let (cm_cell, cm_val) = perm_step(
-                &mut region,
-                &config,
-                base,
-                poseidon::domains()[poseidon::DOMAIN_LEAF],
-                value_cell,
-                t1_cell,
-            )?;
-            base += ROWS_PER_PERM;
-
-            // 4) nf = H_null(pk, rho)
-            let (nf_cell, _nf_val) = perm_step(
-                &mut region,
-                &config,
-                base,
-                poseidon::domains()[poseidon::DOMAIN_NULLIFIER],
-                pk_cell,
-                rho_cell,
-            )?;
-            base += ROWS_PER_PERM;
-
-            // 5) tree walk up to the root
-            let mut node_cell = cm_cell;
-            let mut node_val = cm_val;
-            for i in 0..DEPTH {
-                let sib = path_val
-                    .clone()
-                    .map(|v| v.get(i).copied().unwrap_or(Fp::ZERO));
-                let (c, v) = tree_step(&mut region, &config, base, node_cell, node_val, sib)?;
-                node_cell = c;
-                node_val = v;
+                // 1) pk = H_pk(sk, sk)
+                let (pk_cell, _pk_val) = perm_step(
+                    &mut region,
+                    &config,
+                    base,
+                    poseidon::domains()[poseidon::DOMAIN_PK],
+                    sk_cell.clone(),
+                    sk_cell,
+                )?;
                 base += ROWS_PER_PERM;
-            }
 
-            Ok((node_cell, nf_cell))
-        })?;
+                // 2) t1 = H_leaf(pk, rho)
+                let (t1_cell, _t1_val) = perm_step(
+                    &mut region,
+                    &config,
+                    base,
+                    poseidon::domains()[poseidon::DOMAIN_LEAF],
+                    pk_cell.clone(),
+                    rho_cell.clone(),
+                )?;
+                base += ROWS_PER_PERM;
+
+                // 3) cm = H_leaf(value, t1)
+                let (cm_cell, cm_val) = perm_step(
+                    &mut region,
+                    &config,
+                    base,
+                    poseidon::domains()[poseidon::DOMAIN_LEAF],
+                    value_cell,
+                    t1_cell,
+                )?;
+                base += ROWS_PER_PERM;
+
+                // 4) nf = H_null(pk, rho)
+                let (nf_cell, _nf_val) = perm_step(
+                    &mut region,
+                    &config,
+                    base,
+                    poseidon::domains()[poseidon::DOMAIN_NULLIFIER],
+                    pk_cell,
+                    rho_cell,
+                )?;
+                base += ROWS_PER_PERM;
+
+                // 5) tree walk up to the root
+                let mut node_cell = cm_cell;
+                let mut node_val = cm_val;
+                for i in 0..DEPTH {
+                    let sib = path_val
+                        .clone()
+                        .map(|v| v.get(i).copied().unwrap_or(Fp::ZERO));
+                    let (c, v) = tree_step(&mut region, &config, base, node_cell, node_val, sib)?;
+                    node_cell = c;
+                    node_val = v;
+                    base += ROWS_PER_PERM;
+                }
+
+                Ok((node_cell, nf_cell))
+            },
+        )?;
 
         layouter.constrain_instance(root_cell.cell(), config.instance_root, 0)?;
         layouter.constrain_instance(nf_cell.cell(), config.instance_nf, 0)?;
@@ -509,7 +517,7 @@ mod tests {
     #[test]
     fn wrong_sibling_fails() {
         let (mut w, root, nf) = setup(3);
-        w.path[1] = w.path[1] + Fp::ONE;
+        w.path[1] += Fp::ONE;
         let circuit = FcmpCircuit::<DEPTH> {
             witness: Value::known(w),
         };
@@ -538,7 +546,8 @@ mod tests {
         };
         let k = FcmpCircuit::<D>::required_k();
         assert_eq!(k, 12);
-        let prover = MockProver::run(k, &circuit, vec![vec![root], vec![notes[0].nullifier()]]).unwrap();
+        let prover =
+            MockProver::run(k, &circuit, vec![vec![root], vec![notes[0].nullifier()]]).unwrap();
         prover.verify().unwrap();
     }
 }

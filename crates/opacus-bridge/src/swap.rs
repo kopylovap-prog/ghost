@@ -35,7 +35,9 @@ pub struct SwapEngine {
 
 impl SwapEngine {
     pub fn new() -> Self {
-        Self { sessions: HashMap::new() }
+        Self {
+            sessions: HashMap::new(),
+        }
     }
 
     pub fn initiate(&mut self, secret: &SwapSecret) -> SwapId {
@@ -50,5 +52,7 @@ impl SwapEngine {
 }
 
 impl Default for SwapEngine {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

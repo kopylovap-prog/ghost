@@ -30,7 +30,9 @@ impl MinerEngine {
         let threads = self.config.effective_threads();
         info!(
             "Ghost Miner v{} | threads: {} | mode: {:?}",
-            crate::MINER_VERSION, threads, self.config.mode
+            crate::MINER_VERSION,
+            threads,
+            self.config.mode
         );
         if self.config.reward_address.is_empty() {
             warn!("No reward address set!");
@@ -63,9 +65,7 @@ impl MinerEngine {
 
             let handle = std::thread::Builder::new()
                 .name(format!("opacus-miner-{}", thread_id))
-                .spawn(move || {
-                    ghosthash::mine(&hh, difficulty, start, &stop, deadline, &counter)
-                })
+                .spawn(move || ghosthash::mine(&hh, difficulty, start, &stop, deadline, &counter))
                 .expect("failed to spawn miner thread");
             handles.push(handle);
         }

@@ -44,7 +44,9 @@ use ff::{Field, PrimeField};
 use group::Group;
 use halo2_proofs::{
     circuit::{AssignedCell, Layouter, Region, SimpleFloorPlanner, Value},
-    plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Expression, Fixed, Instance, Selector},
+    plonk::{
+        Advice, Circuit, Column, ConstraintSystem, Error, Expression, Fixed, Instance, Selector,
+    },
     poly::Rotation,
 };
 use pasta_curves::{pallas, Fp, Fq};
@@ -270,8 +272,9 @@ impl LimbRangeConfig {
             let a = meta.query_advice(acc, Rotation::cur());
             let mut sum = meta.query_advice(bits[0], Rotation::cur());
             for k in 1..LIMB_BITS {
-                sum = sum + Expression::Constant(Fp::from(1u64 << k))
-                    * meta.query_advice(bits[k], Rotation::cur());
+                sum = sum
+                    + Expression::Constant(Fp::from(1u64 << k))
+                        * meta.query_advice(bits[k], Rotation::cur());
             }
             let mut constraints: Vec<Expression<Fp>> = Vec::with_capacity(1 + LIMB_BITS);
             constraints.push(sel.clone() * (a - sum));
@@ -391,7 +394,11 @@ impl Circuit<Fp> for LimbRangeCircuit {
         LimbRangeConfig::configure(meta)
     }
 
-    fn synthesize(&self, config: Self::Config, mut layouter: impl Layouter<Fp>) -> Result<(), Error> {
+    fn synthesize(
+        &self,
+        config: Self::Config,
+        mut layouter: impl Layouter<Fp>,
+    ) -> Result<(), Error> {
         let v_cell = layouter.assign_region(
             || "rc-limb",
             |mut region| config.assign(&mut region, self.v, self.corrupt),
@@ -553,50 +560,40 @@ impl V4HashConfig {
                     || format!("state{}-r{}", k, r),
                     self.state[k],
                     base + r,
-                    || s[k].clone(),
+                    || s[k],
                 )?;
             }
-            let iv0 = if r == 0 { in0v.clone() } else { zero() };
-            let iv1 = if r == 0 { in1v.clone() } else { zero() };
-            region.assign_advice(|| "in0", self.absorb[0], base + r, || iv0.clone())?;
-            region.assign_advice(|| "in1", self.absorb[1], base + r, || iv1.clone())?;
-            region.assign_fixed(|| "rc0", self.rc[0], base + r, || {
-                Value::known(rcs[r][0])
-            })?;
-            region.assign_fixed(|| "rc1", self.rc[1], base + r, || {
-                Value::known(rcs[r][1])
-            })?;
-            region.assign_fixed(|| "rc2", self.rc[2], base + r, || {
-                Value::known(rcs[r][2])
-            })?;
+            let iv0 = if r == 0 { in0v } else { zero() };
+            let iv1 = if r == 0 { in1v } else { zero() };
+            region.assign_advice(|| "in0", self.absorb[0], base + r, || iv0)?;
+            region.assign_advice(|| "in1", self.absorb[1], base + r, || iv1)?;
+            region.assign_fixed(|| "rc0", self.rc[0], base + r, || Value::known(rcs[r][0]))?;
+            region.assign_fixed(|| "rc1", self.rc[1], base + r, || Value::known(rcs[r][1]))?;
+            region.assign_fixed(|| "rc2", self.rc[2], base + r, || Value::known(rcs[r][2]))?;
             let dom = if r == 0 { domain } else { Fp::ZERO };
             let flag = if r == 0 { Fp::ONE } else { Fp::ZERO };
-            region.assign_fixed(|| "domain", self.domain, base + r, || {
-                Value::known(dom)
-            })?;
-            region.assign_fixed(|| "absorb", self.is_absorb, base + r, || {
-                Value::known(flag)
-            })?;
+            region.assign_fixed(|| "domain", self.domain, base + r, || Value::known(dom))?;
+            region.assign_fixed(|| "absorb", self.is_absorb, base + r, || Value::known(flag))?;
             self.s_round.enable(region, base + r)?;
 
             let rc0 = Value::known(rcs[r][0]);
             let rc1 = Value::known(rcs[r][1]);
             let rc2 = Value::known(rcs[r][2]);
             let domv = Value::known(dom);
-            let u0 = s[0].clone() + iv0 + rc0;
-            let u1 = s[1].clone() + iv1 + rc1;
-            let u2 = s[2].clone() + domv + rc2;
+            let u0 = s[0] + iv0 + rc0;
+            let u1 = s[1] + iv1 + rc1;
+            let u2 = s[2] + domv + rc2;
             let fiv = |x: Value<Fp>| {
-                let a = x.clone();
-                let b = a.clone() * a;
-                b.clone() * b * x
+                let a = x;
+                let b = a * a;
+                b * b * x
             };
             let p0 = fiv(u0);
             let p1 = fiv(u1);
             let p2 = fiv(u2);
             let two = Value::known(Fp::from(2u64));
-            let n0 = p0.clone() * two.clone() + p1.clone() + p2.clone();
-            let n1 = p0.clone() + p1.clone() * two.clone() + p2.clone();
+            let n0 = p0 * two + p1 + p2;
+            let n1 = p0 + p1 * two + p2;
             let n2 = p0 + p1 + p2 * two;
             s = [n0, n1, n2];
         }
@@ -604,12 +601,8 @@ impl V4HashConfig {
         let fr = base + crate::poseidon::ROUNDS;
         let mut out = None;
         for k in 0..3 {
-            let c = region.assign_advice(
-                || format!("state{}-final", k),
-                self.state[k],
-                fr,
-                || s[k].clone(),
-            )?;
+            let c =
+                region.assign_advice(|| format!("state{}-final", k), self.state[k], fr, || s[k])?;
             if k == 0 {
                 out = Some(c);
             }
@@ -660,33 +653,34 @@ impl Circuit<Fp> for V4NullifierCircuit {
         V4HashConfig::configure(meta)
     }
 
-    fn synthesize(&self, config: Self::Config, mut layouter: impl Layouter<Fp>) -> Result<(), Error> {
-        let n_cell = layouter.assign_region(|| "v4-nullifier", |mut region| {
-            let a_cell = region.assign_advice(|| "a", config.absorb[0], 0, || self.a)?;
-            let b_cell = region.assign_advice(|| "b", config.absorb[1], 0, || self.b)?;
-            // A lying prover derives N from a tampered rho; the published
-            // instance still carries the honest N, so verification fails.
-            let rho_used = if self.corrupt {
-                self.rho.map(|x| x + Fp::ONE)
-            } else {
-                self.rho
-            };
-            let rho_cell = region.assign_advice(|| "rho", config.state[0], 1, || rho_used)?;
-            let nk_cell = config.perm_cells(
-                &mut region,
-                2,
-                dom_nk(),
-                a_cell,
-                b_cell,
-            )?;
-            config.perm_cells(
-                &mut region,
-                2 + V4_ROWS_PER_PERM,
-                dom_nu(),
-                nk_cell,
-                rho_cell,
-            )
-        })?;
+    fn synthesize(
+        &self,
+        config: Self::Config,
+        mut layouter: impl Layouter<Fp>,
+    ) -> Result<(), Error> {
+        let n_cell = layouter.assign_region(
+            || "v4-nullifier",
+            |mut region| {
+                let a_cell = region.assign_advice(|| "a", config.absorb[0], 0, || self.a)?;
+                let b_cell = region.assign_advice(|| "b", config.absorb[1], 0, || self.b)?;
+                // A lying prover derives N from a tampered rho; the published
+                // instance still carries the honest N, so verification fails.
+                let rho_used = if self.corrupt {
+                    self.rho.map(|x| x + Fp::ONE)
+                } else {
+                    self.rho
+                };
+                let rho_cell = region.assign_advice(|| "rho", config.state[0], 1, || rho_used)?;
+                let nk_cell = config.perm_cells(&mut region, 2, dom_nk(), a_cell, b_cell)?;
+                config.perm_cells(
+                    &mut region,
+                    2 + V4_ROWS_PER_PERM,
+                    dom_nu(),
+                    nk_cell,
+                    rho_cell,
+                )
+            },
+        )?;
         layouter.constrain_instance(n_cell.cell(), config.instance, 0)?;
         Ok(())
     }
@@ -719,23 +713,25 @@ impl Circuit<Fp> for V4LeafHashCircuit {
         V4HashConfig::configure(meta)
     }
 
-    fn synthesize(&self, config: Self::Config, mut layouter: impl Layouter<Fp>) -> Result<(), Error> {
-        let h_cell = layouter.assign_region(|| "v4-leaf-hash", |mut region| {
-            let v_used = if self.corrupt {
-                self.v.map(|x| x + 1)
-            } else {
-                self.v
-            };
-            let v_cell = region.assign_advice(
-                || "v",
-                config.absorb[0],
-                0,
-                || v_used.map(Fp::from),
-            )?;
-            let rho_cell =
-                region.assign_advice(|| "rho", config.absorb[1], 0, || self.rho)?;
-            config.perm_cells(&mut region, 1, dom_leaf_v2(), v_cell, rho_cell)
-        })?;
+    fn synthesize(
+        &self,
+        config: Self::Config,
+        mut layouter: impl Layouter<Fp>,
+    ) -> Result<(), Error> {
+        let h_cell = layouter.assign_region(
+            || "v4-leaf-hash",
+            |mut region| {
+                let v_used = if self.corrupt {
+                    self.v.map(|x| x + 1)
+                } else {
+                    self.v
+                };
+                let v_cell =
+                    region.assign_advice(|| "v", config.absorb[0], 0, || v_used.map(Fp::from))?;
+                let rho_cell = region.assign_advice(|| "rho", config.absorb[1], 0, || self.rho)?;
+                config.perm_cells(&mut region, 1, dom_leaf_v2(), v_cell, rho_cell)
+            },
+        )?;
         layouter.constrain_instance(h_cell.cell(), config.instance, 0)?;
         Ok(())
     }
@@ -959,7 +955,8 @@ mod tests {
     }
 
     // Pinned test vectors (blake3-derived, stable across platforms).
-    const DOM_LEAF_V2_HEX: &str = "ef5fb9e6b52e8fd2ad13a41cb5bbe7d700000000000000000000000000000000";
+    const DOM_LEAF_V2_HEX: &str =
+        "ef5fb9e6b52e8fd2ad13a41cb5bbe7d700000000000000000000000000000000";
     const DOM_NK_HEX: &str = "05aaa5ef73643808a460509a993602b000000000000000000000000000000000";
     const DOM_NU_HEX: &str = "c7877750c65441e2063ff5598b3c8a6400000000000000000000000000000000";
     const VALUE_GEN_HEX: &str = "aa6ee3702b714724c674cd327429f8574f821b1160a0b83929a2b5ee967c0b05";

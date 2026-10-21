@@ -27,7 +27,11 @@ pub struct CompactOutput {
 
 impl CompactState {
     pub fn genesis() -> Self {
-        Self { height: 0, last_block_hash: [0u8; 32], commitment_count: 0 }
+        Self {
+            height: 0,
+            last_block_hash: [0u8; 32],
+            commitment_count: 0,
+        }
     }
 
     pub fn apply_block(&mut self, block: &CompactBlock) -> Result<(), crate::LightClientError> {

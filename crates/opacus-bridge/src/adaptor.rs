@@ -24,7 +24,7 @@ impl SwapSecret {
 
     pub fn hash(&self) -> [u8; 32] {
         let mut hasher = Sha3_256::new();
-        hasher.update(&self.t);
+        hasher.update(self.t);
         hasher.finalize().into()
     }
 }

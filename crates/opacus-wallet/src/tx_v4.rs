@@ -33,7 +33,7 @@ use opacus_zk::spend::{
 };
 use opacus_zk::v4::{blind_gen, leaf_v2, nullifier_v4, value_commit, value_gen};
 use opacus_zk::v4_prover::{
-    acc_root_point, prove_v4, spend_instances, verify_v4, Curve, Group, GroupEncoding, Fq, pallas,
+    acc_root_point, pallas, prove_v4, spend_instances, verify_v4, Curve, Fq, Group, GroupEncoding,
 };
 use std::collections::HashSet;
 
@@ -165,7 +165,10 @@ impl std::fmt::Display for TxV4Error {
             TxV4Error::TrailingBytes => write!(f, "trailing bytes after tx"),
             TxV4Error::UnknownLeaf => write!(f, "note entry not found at the given leaf index"),
             TxV4Error::CorruptNote => write!(f, "stored note bytes are corrupt"),
-            TxV4Error::Unbalanced { inputs, outputs_plus_fee } => write!(
+            TxV4Error::Unbalanced {
+                inputs,
+                outputs_plus_fee,
+            } => write!(
                 f,
                 "unbalanced spend: inputs {inputs}, outputs+fee {outputs_plus_fee}"
             ),
@@ -486,7 +489,7 @@ pub fn build_zk_spend_v4<const DEPTH: usize>(
     // tx that cannot sign).
     let sum_in: u64 = notes_in.iter().map(|n| n.4).sum();
     let sum_out: u64 = plan.outputs.iter().map(|n| n.value).sum();
-    let fee = plan.fee.max(FEE_FLOOR_TESTNET);
+    let fee = plan.fee;
     let needed = sum_out.checked_add(fee).ok_or(TxV4Error::Overflow)?;
     if sum_in != needed {
         return Err(TxV4Error::Unbalanced {
@@ -735,7 +738,11 @@ mod tests {
         let parsed = TxV4::from_bytes(&tx.to_bytes()).expect("parse own wire form");
         assert_eq!(parsed.root, tx.root);
         assert_eq!(parsed.nullifiers, tx.nullifiers);
-        let pb = |ps: &[pallas::Point]| ps.iter().map(|p| p.to_affine().to_bytes()).collect::<Vec<_>>();
+        let pb = |ps: &[pallas::Point]| {
+            ps.iter()
+                .map(|p| p.to_affine().to_bytes())
+                .collect::<Vec<_>>()
+        };
         assert_eq!(pb(&parsed.leaves), pb(&tx.leaves));
         assert_eq!(pb(&parsed.rc_in), pb(&tx.rc_in));
         assert_eq!(pb(&parsed.rc_out), pb(&tx.rc_out));
@@ -748,7 +755,10 @@ mod tests {
         // Trailing byte rejected.
         let mut b = tx.to_bytes();
         b.push(0);
-        assert!(matches!(TxV4::from_bytes(&b), Err(TxV4Error::TrailingBytes)));
+        assert!(matches!(
+            TxV4::from_bytes(&b),
+            Err(TxV4Error::TrailingBytes)
+        ));
         // Truncation rejected.
         let b = tx.to_bytes();
         assert!(matches!(
@@ -795,22 +805,22 @@ mod tests {
         let g = pallas::Point::generator();
         // Root.
         let mut t = tx.clone();
-        t.root = t.root + Fp::ONE;
+        t.root += Fp::ONE;
         assert_ne!(t.sighash(), base);
         // Nullifier.
         let mut t = tx.clone();
-        t.nullifiers[0] = t.nullifiers[0] + Fp::ONE;
+        t.nullifiers[0] += Fp::ONE;
         assert_ne!(t.sighash(), base);
         // Leaf.
         let mut t = tx.clone();
-        t.leaves[0] = t.leaves[0] + g;
+        t.leaves[0] += g;
         assert_ne!(t.sighash(), base);
         // RC_in / RC_out.
         let mut t = tx.clone();
-        t.rc_in[0] = t.rc_in[0] + g;
+        t.rc_in[0] += g;
         assert_ne!(t.sighash(), base);
         let mut t = tx.clone();
-        t.rc_out[1] = t.rc_out[1] + g;
+        t.rc_out[1] += g;
         assert_ne!(t.sighash(), base);
         // Fee.
         let mut t = tx.clone();

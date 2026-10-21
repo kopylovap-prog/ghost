@@ -1,9 +1,7 @@
 //! Stealth Addresses
 
 use blake3::Hasher;
-use curve25519_dalek::{
-    constants::ED25519_BASEPOINT_POINT, edwards::EdwardsPoint, scalar::Scalar,
-};
+use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::EdwardsPoint, scalar::Scalar};
 use rand::{CryptoRng, RngCore};
 
 #[derive(Debug, thiserror::Error)]
@@ -29,8 +27,8 @@ impl PublicAddress {
         let v = Scalar::from_bytes_mod_order(keys.view_key);
         let s = Scalar::from_bytes_mod_order(keys.spend_key);
         Self {
-            view_pubkey: &v * &ED25519_BASEPOINT_POINT,
-            spend_pubkey: &s * &ED25519_BASEPOINT_POINT,
+            view_pubkey: v * ED25519_BASEPOINT_POINT,
+            spend_pubkey: s * ED25519_BASEPOINT_POINT,
         }
     }
 
@@ -58,14 +56,17 @@ impl StealthAddress {
         let mut r_bytes = [0u8; 32];
         rng.fill_bytes(&mut r_bytes);
         let r = Scalar::from_bytes_mod_order(r_bytes);
-        let ephemeral = &r * &ED25519_BASEPOINT_POINT;
-        let shared = &r * &recipient.view_pubkey;
+        let ephemeral = r * ED25519_BASEPOINT_POINT;
+        let shared = r * recipient.view_pubkey;
         let mut h = Hasher::new();
         h.update(b"ghost_stealth_derive");
         h.update(shared.compress().as_bytes());
         let secret_bytes: [u8; 32] = h.finalize().into();
         let secret = Scalar::from_bytes_mod_order(secret_bytes);
-        let onetime = &secret * &ED25519_BASEPOINT_POINT + recipient.spend_pubkey;
-        Self { onetime_pubkey: onetime, ephemeral_pubkey: ephemeral }
+        let onetime = secret * ED25519_BASEPOINT_POINT + recipient.spend_pubkey;
+        Self {
+            onetime_pubkey: onetime,
+            ephemeral_pubkey: ephemeral,
+        }
     }
 }

@@ -146,7 +146,10 @@ mod tests {
     #[test]
     fn known_selectors() {
         // Uniswap V2 Router02 selectors (well-known).
-        assert_eq!(selector("getAmountsOut(uint256,address[])"), [0xd0, 0x6c, 0xa6, 0x1f]);
+        assert_eq!(
+            selector("getAmountsOut(uint256,address[])"),
+            [0xd0, 0x6c, 0xa6, 0x1f]
+        );
         assert_eq!(
             selector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"),
             [0x38, 0xed, 0x17, 0x39]
@@ -160,7 +163,10 @@ mod tests {
             [0x18, 0xcb, 0xaf, 0xe5]
         );
         // ERC20
-        assert_eq!(selector("approve(address,uint256)"), [0x09, 0x5e, 0xa7, 0xb3]);
+        assert_eq!(
+            selector("approve(address,uint256)"),
+            [0x09, 0x5e, 0xa7, 0xb3]
+        );
         assert_eq!(selector("deposit()"), [0xd0, 0xe3, 0x0d, 0xb0]);
     }
 
@@ -169,10 +175,10 @@ mod tests {
         // approve(spender=0x1111..11, amount=1000)
         let mut spender = [0x11u8; 20];
         spender[19] = 0x11;
-        let data = encode_call("approve(address,uint256)", &[
-            AbiArg::Address(spender),
-            AbiArg::uint_u128(1000),
-        ]);
+        let data = encode_call(
+            "approve(address,uint256)",
+            &[AbiArg::Address(spender), AbiArg::uint_u128(1000)],
+        );
         assert_eq!(&data[0..4], &[0x09, 0x5e, 0xa7, 0xb3]);
         assert_eq!(data.len(), 4 + 64);
         // address word: 12 zero bytes then 20 address bytes
@@ -187,16 +193,16 @@ mod tests {
     fn address_array_offsets() {
         let a = [1u8; 20];
         let b = [2u8; 20];
-        let data = encode_call("getAmountsOut(uint256,address[])", &[
-            AbiArg::uint_u128(1234),
-            AbiArg::AddressArray(vec![a, b]),
-        ]);
+        let data = encode_call(
+            "getAmountsOut(uint256,address[])",
+            &[AbiArg::uint_u128(1234), AbiArg::AddressArray(vec![a, b])],
+        );
         assert_eq!(&data[0..4], &[0xd0, 0x6c, 0xa6, 0x1f]);
         assert_eq!(data.len(), 4 + 64 + 32 * 3);
         // offset of array tail = 2 words = 64 (second head slot)
         assert_eq!(data[4 + 31], 0xd2); // uint 1234 = 0x04d2 last byte
         assert_eq!(data[4 + 63], 64); // offset word
-        // length
+                                      // length
         let tail = &data[4 + 64..];
         assert_eq!(tail[31], 2);
         // first address starts after 32 zero-padding bytes

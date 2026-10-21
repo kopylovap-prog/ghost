@@ -10,7 +10,11 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 #[derive(Parser)]
-#[command(name = "ghost", version, about = "Ghost: Private. Instant. Bridgeable.")]
+#[command(
+    name = "ghost",
+    version,
+    about = "Ghost: Private. Instant. Bridgeable."
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -67,9 +71,13 @@ async fn main() -> anyhow::Result<()> {
 
     match Cli::parse().command {
         Commands::Start { tor } => start_node(tor).await?,
-        Commands::Mine { pool, address, threads, solo, duration_secs } => {
-            run_miner(pool, address, threads, solo, duration_secs).await?
-        }
+        Commands::Mine {
+            pool,
+            address,
+            threads,
+            solo,
+            duration_secs,
+        } => run_miner(pool, address, threads, solo, duration_secs).await?,
         Commands::CreateWallet => create_wallet()?,
         Commands::RestoreWallet { seed } => restore_wallet(&seed)?,
         Commands::Address => show_address()?,
@@ -81,7 +89,10 @@ async fn main() -> anyhow::Result<()> {
 
 async fn start_node(tor: bool) -> anyhow::Result<()> {
     println!("Starting Ghost Node... (Ctrl+C to stop)");
-    let config = DaemonConfig { use_tor: tor, ..Default::default() };
+    let config = DaemonConfig {
+        use_tor: tor,
+        ..Default::default()
+    };
     let mut daemon = OpacusDaemon::new(config)?;
     daemon.run().await?;
     Ok(())
@@ -95,7 +106,11 @@ async fn run_miner(
     duration_secs: u64,
 ) -> anyhow::Result<()> {
     let mut config = MinerConfig::default();
-    config.mode = if solo { MiningMode::Solo } else { MiningMode::Pool };
+    config.mode = if solo {
+        MiningMode::Solo
+    } else {
+        MiningMode::Pool
+    };
     if let Some(p) = pool {
         config.pool_url = Some(p);
     }
@@ -121,7 +136,11 @@ async fn run_miner(
     println!("  Threads:  {}", config.effective_threads());
     println!(
         "  Address:  {}",
-        if config.reward_address.is_empty() { "(not set)" } else { &config.reward_address }
+        if config.reward_address.is_empty() {
+            "(not set)"
+        } else {
+            &config.reward_address
+        }
     );
     println!("  Duration: {}s (Ctrl+C to stop early)", duration_secs);
     println!();

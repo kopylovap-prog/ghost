@@ -86,7 +86,9 @@ use group::{Curve, Group, GroupEncoding};
 use halo2_proofs::{
     arithmetic::CurveAffine,
     circuit::{AssignedCell, Layouter, Region, SimpleFloorPlanner, Value},
-    plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Expression, Fixed, Instance, Selector},
+    plonk::{
+        Advice, Circuit, Column, ConstraintSystem, Error, Expression, Fixed, Instance, Selector,
+    },
     poly::Rotation,
 };
 use pasta_curves::{pallas, Fp, Fq};
@@ -242,10 +244,10 @@ pub fn binding_sk(r_in: &[Fq], r_out: &[Fq]) -> Fq {
 pub fn binding_vk(rc_in: &[pallas::Point], rc_out: &[pallas::Point], fee: u64) -> pallas::Point {
     let mut acc = pallas::Point::identity();
     for rc in rc_in {
-        acc = acc + rc;
+        acc += rc;
     }
     for rc in rc_out {
-        acc = acc - rc;
+        acc -= rc;
     }
     acc - value_gen() * Fq::from(fee)
 }
@@ -565,52 +567,42 @@ impl SpendHashConfig {
                     || format!("state{}-r{}", k, r),
                     self.state[k],
                     base + r,
-                    || s[k].clone(),
+                    || s[k],
                 )?;
             }
-            let iv0 = if r == 0 { in0v.clone() } else { zero() };
-            let iv1 = if r == 0 { in1v.clone() } else { zero() };
-            let dv = if r == 0 { domv.clone() } else { zero() };
-            region.assign_advice(|| "in0", self.absorb[0], base + r, || iv0.clone())?;
-            region.assign_advice(|| "in1", self.absorb[1], base + r, || iv1.clone())?;
-            region.assign_advice(|| "dom-in", self.dom_in, base + r, || dv.clone())?;
-            region.assign_fixed(|| "rc0", self.rc[0], base + r, || {
-                Value::known(rcs[r][0])
-            })?;
-            region.assign_fixed(|| "rc1", self.rc[1], base + r, || {
-                Value::known(rcs[r][1])
-            })?;
-            region.assign_fixed(|| "rc2", self.rc[2], base + r, || {
-                Value::known(rcs[r][2])
-            })?;
+            let iv0 = if r == 0 { in0v } else { zero() };
+            let iv1 = if r == 0 { in1v } else { zero() };
+            let dv = if r == 0 { domv } else { zero() };
+            region.assign_advice(|| "in0", self.absorb[0], base + r, || iv0)?;
+            region.assign_advice(|| "in1", self.absorb[1], base + r, || iv1)?;
+            region.assign_advice(|| "dom-in", self.dom_in, base + r, || dv)?;
+            region.assign_fixed(|| "rc0", self.rc[0], base + r, || Value::known(rcs[r][0]))?;
+            region.assign_fixed(|| "rc1", self.rc[1], base + r, || Value::known(rcs[r][1]))?;
+            region.assign_fixed(|| "rc2", self.rc[2], base + r, || Value::known(rcs[r][2]))?;
             let dom = if r == 0 { fd } else { Fp::ZERO };
             let flag = if r == 0 { Fp::ONE } else { Fp::ZERO };
-            region.assign_fixed(|| "domain", self.domain, base + r, || {
-                Value::known(dom)
-            })?;
-            region.assign_fixed(|| "absorb", self.is_absorb, base + r, || {
-                Value::known(flag)
-            })?;
+            region.assign_fixed(|| "domain", self.domain, base + r, || Value::known(dom))?;
+            region.assign_fixed(|| "absorb", self.is_absorb, base + r, || Value::known(flag))?;
             self.s_round.enable(region, base + r)?;
 
             // Honest simulation of the next state (mirrors the gate).
             let rc0 = Value::known(rcs[r][0]);
             let rc1 = Value::known(rcs[r][1]);
             let rc2 = Value::known(rcs[r][2]);
-            let u0 = s[0].clone() + iv0 + rc0;
-            let u1 = s[1].clone() + iv1 + rc1;
-            let u2 = s[2].clone() + dv + Value::known(dom) + rc2;
+            let u0 = s[0] + iv0 + rc0;
+            let u1 = s[1] + iv1 + rc1;
+            let u2 = s[2] + dv + Value::known(dom) + rc2;
             let fiv = |x: Value<Fp>| {
-                let a = x.clone();
-                let b = a.clone() * a;
-                b.clone() * b * x
+                let a = x;
+                let b = a * a;
+                b * b * x
             };
             let p0 = fiv(u0);
             let p1 = fiv(u1);
             let p2 = fiv(u2);
             let two = Value::known(Fp::from(2u64));
-            let n0 = p0.clone() * two.clone() + p1.clone() + p2.clone();
-            let n1 = p0.clone() + p1.clone() * two.clone() + p2.clone();
+            let n0 = p0 * two + p1 + p2;
+            let n1 = p0 + p1 * two + p2;
             let n2 = p0 + p1 + p2 * two;
             s = [n0, n1, n2];
         }
@@ -618,12 +610,8 @@ impl SpendHashConfig {
         let fr = base + ROUNDS;
         let mut out = None;
         for k in 0..3 {
-            let c = region.assign_advice(
-                || format!("state{}-final", k),
-                self.state[k],
-                fr,
-                || s[k].clone(),
-            )?;
+            let c =
+                region.assign_advice(|| format!("state{}-final", k), self.state[k], fr, || s[k])?;
             if k == 0 {
                 out = Some(c);
             }
@@ -697,8 +685,9 @@ impl SpendLimbConfig {
             let a = meta.query_advice(acc, Rotation::cur());
             let mut sum = meta.query_advice(bits[0], Rotation::cur());
             for k in 1..LIMB_BITS {
-                sum = sum + Expression::Constant(Fp::from(1u64 << k))
-                    * meta.query_advice(bits[k], Rotation::cur());
+                sum = sum
+                    + Expression::Constant(Fp::from(1u64 << k))
+                        * meta.query_advice(bits[k], Rotation::cur());
             }
             let mut constraints: Vec<Expression<Fp>> = Vec::with_capacity(1 + LIMB_BITS);
             constraints.push(sel.clone() * (a - sum));
@@ -757,12 +746,7 @@ impl SpendLimbConfig {
         let mut limb_cells = Vec::with_capacity(N_LIMBS);
         for j in 0..N_LIMBS {
             let l = v.map(|x| Fp::from((x >> (LIMB_BITS * j)) & 0xFFFF));
-            let c = region.assign_advice(
-                || format!("limb{}", j),
-                self.limb[j],
-                base,
-                || l,
-            )?;
+            let c = region.assign_advice(|| format!("limb{}", j), self.limb[j], base, || l)?;
             limb_cells.push(c);
         }
         region.assign_advice(|| "acc-init", self.acc, base, zero)?;
@@ -788,12 +772,8 @@ impl SpendLimbConfig {
                 )?;
             }
             let limb_val = v.map(|x| Fp::from((x >> (LIMB_BITS * j)) & 0xFFFF));
-            let acc_cell = region.assign_advice(
-                || format!("acc-{}", j),
-                self.acc,
-                row,
-                || limb_val,
-            )?;
+            let acc_cell =
+                region.assign_advice(|| format!("acc-{}", j), self.acc, row, || limb_val)?;
             self.s_bits.enable(region, row)?;
             region.constrain_equal(limb_cells[j].cell(), acc_cell.cell())?;
         }
@@ -993,7 +973,7 @@ impl SpendFbConfig {
                     row_sum = row_sum + b * Expression::Constant(Fp::from(1u64 << k));
                 }
                 sum = sum + row_sum * Expression::Constant(w);
-                w = w * two16;
+                w *= two16;
             }
             vec![sel * (top - sum)]
         });
@@ -1241,9 +1221,9 @@ impl SpendConfig {
     ) -> Result<AssignedCell<Fp, Fp>, Error> {
         let node_val = node_cell.value().cloned();
         node_cell.copy_advice(|| "tree-node", region, self.tree_src[0], base)?;
-        region.assign_advice(|| "tree-sib", self.tree_src[1], base, || sib_val.clone())?;
+        region.assign_advice(|| "tree-sib", self.tree_src[1], base, || sib_val)?;
 
-        let sum = node_val.clone() + sib_val.clone();
+        let sum = node_val + sib_val;
         let prod = node_val * sib_val;
         let sum_cell = region.assign_advice(|| "tree-sum", self.tree_sum, base, || sum)?;
         let prod_cell = region.assign_advice(|| "tree-prod", self.tree_prod, base, || prod)?;
@@ -1288,7 +1268,7 @@ impl SpendConfig {
         Error,
     > {
         // Rows base..=base+4: rc-limb gate over the shared bit columns.
-        let v_cell = self.limb.assign(region, base, v.clone(), corrupt)?;
+        let v_cell = self.limb.assign(region, base, v, corrupt)?;
 
         let repr = r.to_repr();
         let mults_v = fb_multiples(value_gen());
@@ -1300,8 +1280,7 @@ impl SpendConfig {
         // the r-part on the concrete blinding representation.
         let rows_val: Value<Vec<RowVals>> = v.map(|v0| {
             let mut bits_rows: Vec<[Fp; 16]> = Vec::with_capacity(N_LIMBS + FB_SCALAR_ROWS);
-            let mut mults_rows: Vec<[(Fp, Fp); 16]> =
-                Vec::with_capacity(N_LIMBS + FB_SCALAR_ROWS);
+            let mut mults_rows: Vec<[(Fp, Fp); 16]> = Vec::with_capacity(N_LIMBS + FB_SCALAR_ROWS);
             for j in 0..N_LIMBS {
                 let mut bits = [Fp::ZERO; 16];
                 let mut mults = [(Fp::ZERO, Fp::ZERO); 16];
@@ -1426,8 +1405,7 @@ impl SpendConfig {
             let s_repr = s0.to_repr();
             let h_repr = h0.to_repr();
             let mut bits_rows: Vec<[Fp; 16]> = Vec::with_capacity(2 * FB_SCALAR_ROWS);
-            let mut mults_rows: Vec<[(Fp, Fp); 16]> =
-                Vec::with_capacity(2 * FB_SCALAR_ROWS);
+            let mut mults_rows: Vec<[(Fp, Fp); 16]> = Vec::with_capacity(2 * FB_SCALAR_ROWS);
             for j in 0..FB_SCALAR_ROWS {
                 let mut bits = [Fp::ZERO; 16];
                 let mut mults = [(Fp::ZERO, Fp::ZERO); 16];
@@ -1462,7 +1440,11 @@ impl SpendConfig {
         for j in 0..(2 * FB_SCALAR_ROWS) {
             let row = base + 1 + j;
             let bit_base = 16 * (j % FB_SCALAR_ROWS);
-            let multiples: &[(Fp, Fp)] = if j < FB_SCALAR_ROWS { &mults_g } else { &mults_g3 };
+            let multiples: &[(Fp, Fp)] = if j < FB_SCALAR_ROWS {
+                &mults_g
+            } else {
+                &mults_g3
+            };
             self.fb.assign_fx(region, row, multiples, bit_base)?;
             for k in 0..16 {
                 let idx = bit_base + k;
@@ -1471,16 +1453,14 @@ impl SpendConfig {
                     self.fb.bits[k],
                     row,
                     || {
-                        let mut b = sh_val
-                            .clone()
-                            .map(|(s0, h0)| {
-                                let repr = if j < FB_SCALAR_ROWS {
-                                    s0.to_repr()
-                                } else {
-                                    h0.to_repr()
-                                };
-                                bit_of(&repr, idx)
-                            });
+                        let mut b = sh_val.map(|(s0, h0)| {
+                            let repr = if j < FB_SCALAR_ROWS {
+                                s0.to_repr()
+                            } else {
+                                h0.to_repr()
+                            };
+                            bit_of(&repr, idx)
+                        });
                         if corrupt && j >= FB_SCALAR_ROWS && corrupt_idx == Some(idx) {
                             b = b.map(|x| Fp::ONE - x);
                         }
@@ -1583,7 +1563,7 @@ impl<const DEPTH: usize> V4SpendCircuit<DEPTH> {
                 + PERM_ROWS               // tree entry
                 + DEPTH * PERM_ROWS)      // membership path
             + MAX_OUT * VALUE_REGION_ROWS
-            + 1                           // pad-zero row
+            + 1 // pad-zero row
     }
 
     /// Smallest k such that the circuit fits, with a margin for the
@@ -1628,179 +1608,173 @@ impl<const DEPTH: usize> Circuit<Fp> for V4SpendCircuit<DEPTH> {
         debug_assert_eq!(self.r_in.len(), self.n_in);
         debug_assert_eq!(self.r_out.len(), self.n_out);
 
-        let cells = layouter.assign_region(|| "v4-spend", |mut region| {
-            let mut base = 0usize;
-            let wv = self.witness.clone();
-            let mut root_cells: Vec<AssignedCell<Fp, Fp>> = Vec::new();
-            let mut n_cells: Vec<Option<AssignedCell<Fp, Fp>>> =
-                (0..MAX_IN).map(|_| None).collect();
-            let mut rc_in: Vec<Option<(AssignedCell<Fp, Fp>, AssignedCell<Fp, Fp>)>> =
-                (0..MAX_IN).map(|_| None).collect();
-            let mut rc_out: Vec<Option<(AssignedCell<Fp, Fp>, AssignedCell<Fp, Fp>)>> =
-                (0..MAX_OUT).map(|_| None).collect();
+        let cells = layouter.assign_region(
+            || "v4-spend",
+            |mut region| {
+                let mut base = 0usize;
+                let wv = self.witness.clone();
+                let mut root_cells: Vec<AssignedCell<Fp, Fp>> = Vec::new();
+                let mut n_cells: Vec<Option<AssignedCell<Fp, Fp>>> =
+                    (0..MAX_IN).map(|_| None).collect();
+                let mut rc_in: Vec<Option<(AssignedCell<Fp, Fp>, AssignedCell<Fp, Fp>)>> =
+                    (0..MAX_IN).map(|_| None).collect();
+                let mut rc_out: Vec<Option<(AssignedCell<Fp, Fp>, AssignedCell<Fp, Fp>)>> =
+                    (0..MAX_OUT).map(|_| None).collect();
 
-            for i in 0..MAX_IN {
-                if i >= self.n_in {
-                    continue;
+                for i in 0..MAX_IN {
+                    if i >= self.n_in {
+                        continue;
+                    }
+                    let inp = wv.clone().map(|w| w.inputs[i].clone());
+
+                    // Witness row [a, b, rho, D].
+                    let a_cell = region.assign_advice(
+                        || "in-a",
+                        config.wit[0],
+                        base,
+                        || inp.clone().map(|n| n.a),
+                    )?;
+                    let b_cell = region.assign_advice(
+                        || "in-b",
+                        config.wit[1],
+                        base,
+                        || inp.clone().map(|n| n.b),
+                    )?;
+                    let rho_cell = region.assign_advice(
+                        || "in-rho",
+                        config.wit[2],
+                        base,
+                        || inp.clone().map(|n| n.rho),
+                    )?;
+                    let d_cell = region.assign_advice(
+                        || "in-d",
+                        config.wit[3],
+                        base,
+                        || inp.clone().map(|n| n.d),
+                    )?;
+                    base += 1;
+
+                    // Value region: RC_in_i = v * V + r * R [S4 4, S4 8].
+                    let v_val = inp.clone().map(|n| n.v);
+                    let (v_cell, rcx, rcy) = config.assign_value(
+                        &mut region,
+                        base,
+                        v_val,
+                        self.r_in[i],
+                        self.corrupt_limb == Some(i),
+                    )?;
+                    rc_in[i] = Some((rcx, rcy));
+                    base += VALUE_REGION_ROWS;
+
+                    // Nullifier chain [S4 5]: nk = P(a, b, DOM_NK) and
+                    // N = P(nk, rho, DOM_NU) from the SAME (a, b, rho)
+                    // witnesses that feed the membership statement below.
+                    let nk_cell =
+                        config.perm(&mut region, base, dom_nk(), a_cell.clone(), b_cell.clone())?;
+                    base += PERM_ROWS;
+                    let n_cell =
+                        config.perm(&mut region, base, dom_nu(), nk_cell, rho_cell.clone())?;
+                    n_cells[i] = Some(n_cell);
+                    base += PERM_ROWS;
+
+                    // Key part [S4 3]: u = a + b and w = a * b via the
+                    // linear/quadratic operand gates, then
+                    // s = P(D, u, w) with the WITNESS domain D.
+                    a_cell.copy_advice(|| "key-src-a", &mut region, config.tree_src[0], base)?;
+                    b_cell.copy_advice(|| "key-src-b", &mut region, config.tree_src[1], base)?;
+                    let u_cell = region.assign_advice(
+                        || "key-u",
+                        config.tree_sum,
+                        base,
+                        || a_cell.value().cloned() + b_cell.value().cloned(),
+                    )?;
+                    let w_cell = region.assign_advice(
+                        || "key-w",
+                        config.tree_prod,
+                        base,
+                        || a_cell.value().cloned() * b_cell.value().cloned(),
+                    )?;
+                    config.s_add.enable(&mut region, base)?;
+                    config.s_mul.enable(&mut region, base)?;
+                    base += 1;
+                    let s_cell = config.perm_wd(&mut region, base, &d_cell, u_cell, w_cell)?;
+                    base += PERM_ROWS;
+
+                    // Leaf hash [S4 3]: H_leaf = P(v, rho, DOM_LEAF_V2) from
+                    // the SAME (v, rho) witnesses (v from the limb gate, so
+                    // the RC and the leaf carry the same amount).
+                    let h_cell =
+                        config.perm(&mut region, base, dom_leaf_v2(), v_cell, rho_cell.clone())?;
+                    base += PERM_ROWS;
+
+                    // Leaf chain [S4 3, S4 8]: L = [s] * G + [h] * G3 as one
+                    // multi-base fixed-base accumulation.
+                    let sh_val: Value<(Fp, Fp)> = inp.clone().map(|n| {
+                        let s0 = poseidon_absorb(n.d, n.a + n.b, n.a * n.b)[0];
+                        let h0 = h_leaf_v2(n.v, n.rho);
+                        (s0, h0)
+                    });
+                    let (lx, ly) = config.assign_leaf_chain(
+                        &mut region,
+                        base,
+                        &s_cell,
+                        &h_cell,
+                        sh_val,
+                        self.corrupt_leaf == Some(i),
+                    )?;
+                    base += LEAF_CHAIN_ROWS;
+
+                    // Tree entry (Phase 2 convention):
+                    // e = P(L.x, L.y, DOM_ACC).
+                    let e_cell = config.perm(&mut region, base, dom_acc(), lx, ly)?;
+                    base += PERM_ROWS;
+
+                    // Membership path [S4 1 P1]: DEPTH commutative tree steps
+                    // from the reconstructed entry up to the public root.
+                    let path_val = inp.map(|n| n.path);
+                    let mut node = e_cell;
+                    for t in 0..DEPTH {
+                        let sib = path_val
+                            .clone()
+                            .map(|v| v.get(t).copied().unwrap_or(Fp::ZERO));
+                        node = config.tree_step(&mut region, base, node, sib)?;
+                        base += PERM_ROWS;
+                    }
+                    root_cells.push(node);
                 }
-                let inp = wv.clone().map(|w| w.inputs[i].clone());
 
-                // Witness row [a, b, rho, D].
-                let a_cell = region.assign_advice(
-                    || "in-a",
+                for j in 0..MAX_OUT {
+                    if j >= self.n_out {
+                        continue;
+                    }
+                    let out = wv.clone().map(|w| w.outputs[j].clone());
+                    let v_val = out.map(|n| n.v);
+                    let (_v_cell, rcx, rcy) =
+                        config.assign_value(&mut region, base, v_val, self.r_out[j], false)?;
+                    rc_out[j] = Some((rcx, rcy));
+                    base += VALUE_REGION_ROWS;
+                }
+
+                // The pad-zero cell: constrained to every padded instance
+                // slot below [S4 8] (padded inputs contribute 0 for N and the
+                // encoded identity (0, 0) for RC; padded outputs contribute
+                // (0, 0) for RC).
+                let zero_cell = region.assign_advice(
+                    || "pad-zero",
                     config.wit[0],
                     base,
-                    || inp.clone().map(|n| n.a),
+                    || Value::known(Fp::ZERO),
                 )?;
-                let b_cell = region.assign_advice(
-                    || "in-b",
-                    config.wit[1],
-                    base,
-                    || inp.clone().map(|n| n.b),
-                )?;
-                let rho_cell = region.assign_advice(
-                    || "in-rho",
-                    config.wit[2],
-                    base,
-                    || inp.clone().map(|n| n.rho),
-                )?;
-                let d_cell = region.assign_advice(
-                    || "in-d",
-                    config.wit[3],
-                    base,
-                    || inp.clone().map(|n| n.d),
-                )?;
-                base += 1;
 
-                // Value region: RC_in_i = v * V + r * R [S4 4, S4 8].
-                let v_val = inp.clone().map(|n| n.v);
-                let (v_cell, rcx, rcy) = config.assign_value(
-                    &mut region,
-                    base,
-                    v_val,
-                    self.r_in[i],
-                    self.corrupt_limb == Some(i),
-                )?;
-                rc_in[i] = Some((rcx, rcy));
-                base += VALUE_REGION_ROWS;
-
-                // Nullifier chain [S4 5]: nk = P(a, b, DOM_NK) and
-                // N = P(nk, rho, DOM_NU) from the SAME (a, b, rho)
-                // witnesses that feed the membership statement below.
-                let nk_cell = config.perm(
-                    &mut region,
-                    base,
-                    dom_nk(),
-                    a_cell.clone(),
-                    b_cell.clone(),
-                )?;
-                base += PERM_ROWS;
-                let n_cell = config.perm(
-                    &mut region,
-                    base,
-                    dom_nu(),
-                    nk_cell,
-                    rho_cell.clone(),
-                )?;
-                n_cells[i] = Some(n_cell);
-                base += PERM_ROWS;
-
-                // Key part [S4 3]: u = a + b and w = a * b via the
-                // linear/quadratic operand gates, then
-                // s = P(D, u, w) with the WITNESS domain D.
-                a_cell.copy_advice(|| "key-src-a", &mut region, config.tree_src[0], base)?;
-                b_cell.copy_advice(|| "key-src-b", &mut region, config.tree_src[1], base)?;
-                let u_cell = region.assign_advice(|| "key-u", config.tree_sum, base, || {
-                    a_cell.value().cloned() + b_cell.value().cloned()
-                })?;
-                let w_cell = region.assign_advice(|| "key-w", config.tree_prod, base, || {
-                    a_cell.value().cloned() * b_cell.value().cloned()
-                })?;
-                config.s_add.enable(&mut region, base)?;
-                config.s_mul.enable(&mut region, base)?;
-                base += 1;
-                let s_cell = config.perm_wd(&mut region, base, &d_cell, u_cell, w_cell)?;
-                base += PERM_ROWS;
-
-                // Leaf hash [S4 3]: H_leaf = P(v, rho, DOM_LEAF_V2) from
-                // the SAME (v, rho) witnesses (v from the limb gate, so
-                // the RC and the leaf carry the same amount).
-                let h_cell = config.perm(
-                    &mut region,
-                    base,
-                    dom_leaf_v2(),
-                    v_cell,
-                    rho_cell.clone(),
-                )?;
-                base += PERM_ROWS;
-
-                // Leaf chain [S4 3, S4 8]: L = [s] * G + [h] * G3 as one
-                // multi-base fixed-base accumulation.
-                let sh_val: Value<(Fp, Fp)> = inp.clone().map(|n| {
-                    let s0 = poseidon_absorb(n.d, n.a + n.b, n.a * n.b)[0];
-                    let h0 = h_leaf_v2(n.v, n.rho);
-                    (s0, h0)
-                });
-                let (lx, ly) = config.assign_leaf_chain(
-                    &mut region,
-                    base,
-                    &s_cell,
-                    &h_cell,
-                    sh_val,
-                    self.corrupt_leaf == Some(i),
-                )?;
-                base += LEAF_CHAIN_ROWS;
-
-                // Tree entry (Phase 2 convention):
-                // e = P(L.x, L.y, DOM_ACC).
-                let e_cell = config.perm(&mut region, base, dom_acc(), lx, ly)?;
-                base += PERM_ROWS;
-
-                // Membership path [S4 1 P1]: DEPTH commutative tree steps
-                // from the reconstructed entry up to the public root.
-                let path_val = inp.map(|n| n.path);
-                let mut node = e_cell;
-                for t in 0..DEPTH {
-                    let sib = path_val
-                        .clone()
-                        .map(|v| v.get(t).copied().unwrap_or(Fp::ZERO));
-                    node = config.tree_step(&mut region, base, node, sib)?;
-                    base += PERM_ROWS;
-                }
-                root_cells.push(node);
-            }
-
-            for j in 0..MAX_OUT {
-                if j >= self.n_out {
-                    continue;
-                }
-                let out = wv.clone().map(|w| w.outputs[j].clone());
-                let v_val = out.map(|n| n.v);
-                let (_v_cell, rcx, rcy) =
-                    config.assign_value(&mut region, base, v_val, self.r_out[j], false)?;
-                rc_out[j] = Some((rcx, rcy));
-                base += VALUE_REGION_ROWS;
-            }
-
-            // The pad-zero cell: constrained to every padded instance
-            // slot below [S4 8] (padded inputs contribute 0 for N and the
-            // encoded identity (0, 0) for RC; padded outputs contribute
-            // (0, 0) for RC).
-            let zero_cell = region.assign_advice(
-                || "pad-zero",
-                config.wit[0],
-                base,
-                || Value::known(Fp::ZERO),
-            )?;
-
-            Ok(SpendCells {
-                root_cells,
-                n_cells,
-                rc_in,
-                rc_out,
-                zero_cell,
-            })
-        })?;
+                Ok(SpendCells {
+                    root_cells,
+                    n_cells,
+                    rc_in,
+                    rc_out,
+                    zero_cell,
+                })
+            },
+        )?;
 
         // Normative instance order [S4 8]: slot 0 = root (every enabled
         // input walks to the SAME root and is constrained to it),
@@ -2075,7 +2049,7 @@ mod tests {
     fn v4_spend_rejects_wrong_root() {
         let (circuit, mut instances, _note, _rcs) = wallet_fixture();
         // A root the membership path does not lead to must fail [S4 1 P1].
-        instances[0] = instances[0] + Fp::ONE;
+        instances[0] += Fp::ONE;
         let k = V4SpendCircuit::<DEPTH>::required_k();
         let prover = MockProver::run(k, &circuit, vec![instances]).unwrap();
         assert!(prover.verify().is_err());
@@ -2246,7 +2220,10 @@ mod tests {
             sighash_v4(&(root + g), &ns, &leaves, &rc_in, &rc_out, 5),
             base
         );
-        assert_ne!(sighash_v4(&root, &[Fp::from(12u64)], &leaves, &rc_in, &rc_out, 5), base);
+        assert_ne!(
+            sighash_v4(&root, &[Fp::from(12u64)], &leaves, &rc_in, &rc_out, 5),
+            base
+        );
         assert_ne!(sighash_v4(&root, &ns, &[], &rc_in, &rc_out, 5), base);
         assert_ne!(sighash_v4(&root, &ns, &leaves, &[], &rc_out, 5), base);
         assert_ne!(sighash_v4(&root, &ns, &leaves, &rc_in, &[], 5), base);
@@ -2360,9 +2337,7 @@ mod real_tests {
                         path: path1,
                     },
                 ],
-                outputs: (0..MAX_OUT)
-                    .map(|_| SpendNoteOutput { v: 50 })
-                    .collect(),
+                outputs: (0..MAX_OUT).map(|_| SpendNoteOutput { v: 50 }).collect(),
             }),
             r_in: r_in.clone(),
             r_out: r_out.clone(),
@@ -2425,12 +2400,7 @@ mod real_tests {
 
         let mut transcript = Blake2bRead::<_, vesta::Affine, Challenge255<_>>::init(&proof[..]);
         let strategy = SingleVerifier::new(&params);
-        verify_proof::<
-            vesta::Affine,
-            Challenge255<vesta::Affine>,
-            _,
-            _,
-        >(
+        verify_proof::<vesta::Affine, Challenge255<vesta::Affine>, _, _>(
             &params,
             &vk,
             strategy,
@@ -2441,7 +2411,7 @@ mod real_tests {
 
         // A tampered public root must not verify.
         let mut bad = instances.clone();
-        bad[0] = bad[0] + Fp::ONE;
+        bad[0] += Fp::ONE;
         let mut transcript = Blake2bRead::<_, vesta::Affine, Challenge255<_>>::init(&proof[..]);
         let strategy = SingleVerifier::new(&params);
         assert!(

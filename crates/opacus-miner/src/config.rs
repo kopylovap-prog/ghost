@@ -48,6 +48,7 @@ impl MinerConfig {
     }
 
     pub fn effective_threads(&self) -> usize {
-        self.threads.unwrap_or_else(|| num_cpus::get().saturating_sub(1).max(1))
+        self.threads
+            .unwrap_or_else(|| num_cpus::get().saturating_sub(1).max(1))
     }
 }

@@ -36,11 +36,11 @@
 use std::collections::HashSet;
 
 use borsh::BorshDeserialize;
+use opacus_wallet::tx_v4::{TxV4, TxV4Error, FEE_FLOOR_TESTNET, TX_VERSION_V4};
+use opacus_wallet::zk_spend::{fp_to_bytes, TreeState};
 use opacus_zk::prelude::*;
 use opacus_zk::spend::{binding_vk, tree_rep, verify_bind};
 use opacus_zk::v4_prover::verify_v4;
-use opacus_wallet::tx_v4::{TxV4, TxV4Error, FEE_FLOOR_TESTNET, TX_VERSION_V4};
-use opacus_wallet::zk_spend::{fp_to_bytes, TreeState};
 
 use crate::transaction::Transaction;
 
@@ -467,8 +467,7 @@ mod tests {
         let err = accept_transaction::<DEPTH>(&params(), ACT, &legacy_tx_bytes(), &mut st)
             .expect_err("v3 after activation must be rejected");
         assert!(
-            matches!(err, Reject::Version { got: 3, .. })
-                || matches!(err, Reject::Version { .. }),
+            matches!(err, Reject::Version { got: 3, .. }) || matches!(err, Reject::Version { .. }),
             "version gate reject, got: {err:?}"
         );
 
@@ -528,8 +527,7 @@ mod tests {
         let (tree, tx) = fixture_tx();
         let wire = tx.to_bytes();
         let mut st = state_from(&tree);
-        accept_transaction::<DEPTH>(&params(), ACT, &wire, &mut st)
-            .expect("first acceptance ok");
+        accept_transaction::<DEPTH>(&params(), ACT, &wire, &mut st).expect("first acceptance ok");
         // Seen-set (step 5) fires before the root check (step 6): the
         // replayed tx anchors at the now-stale root, yet the seen nullifier
         // is reported first.

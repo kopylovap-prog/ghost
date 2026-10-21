@@ -31,7 +31,10 @@ impl MinerStats {
 
     pub fn add_hashes(&self, count: u64) {
         let mut samples = self.samples.lock();
-        samples.push(Sample { at: Instant::now(), hashes: count });
+        samples.push(Sample {
+            at: Instant::now(),
+            hashes: count,
+        });
         if samples.len() > 600 {
             samples.remove(0);
         }
@@ -82,5 +85,7 @@ impl MinerStats {
 }
 
 impl Default for MinerStats {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

@@ -413,7 +413,7 @@ impl FbConfig {
                     row_sum = row_sum + b * Expression::Constant(Fp::from(1u64 << k));
                 }
                 sum = sum + row_sum * Expression::Constant(w);
-                w = w * two16;
+                w *= two16;
             }
             vec![sel * (h - sum)]
         });
@@ -582,7 +582,7 @@ impl V4ValueCommitConfig {
         corrupt: bool,
     ) -> Result<(AssignedCell<Fp, Fp>, AssignedCell<Fp, Fp>), Error> {
         // Rows 0..=4: rc-limb gate over the shared bit columns.
-        self.limb.assign(region, v.clone(), false)?;
+        self.limb.assign(region, v, false)?;
 
         let repr = r.to_repr();
         let mults_v = fb_multiples(value_gen());
@@ -653,9 +653,7 @@ impl V4ValueCommitConfig {
             }
             let multiples: &[(Fp, Fp)] = if j < N_LIMBS { &mults_v } else { &mults_r };
             self.fb.assign_fx(region, row, multiples, bit_base)?;
-            let (cx, cy) = self
-                .fb
-                .assign_chain_row(region, row, j, &rows_val)?;
+            let (cx, cy) = self.fb.assign_chain_row(region, row, j, &rows_val)?;
             self.fb.s_acc.enable(region, row)?;
             x_out = Some(cx);
             y_out = Some(cy);
@@ -703,9 +701,10 @@ impl Circuit<Fp> for V4ValueCommitCircuit {
         config: Self::Config,
         mut layouter: impl Layouter<Fp>,
     ) -> Result<(), Error> {
-        let (x_cell, y_cell) = layouter.assign_region(|| "rc-fixed-base", |mut region| {
-            config.assign(&mut region, self.v, self.r, self.corrupt)
-        })?;
+        let (x_cell, y_cell) = layouter.assign_region(
+            || "rc-fixed-base",
+            |mut region| config.assign(&mut region, self.v, self.r, self.corrupt),
+        )?;
         layouter.constrain_instance(x_cell.cell(), config.fb.instance, 0)?;
         layouter.constrain_instance(y_cell.cell(), config.fb.instance, 1)?;
         Ok(())
@@ -852,23 +851,28 @@ impl Circuit<Fp> for V4LeafTermCircuit {
         config: Self::Config,
         mut layouter: impl Layouter<Fp>,
     ) -> Result<(), Error> {
-        let h_cell = layouter.assign_region(|| "leaf-v2-hash", |mut region| {
-            let v_cell = region.assign_advice(
-                || "v",
-                config.hash.absorb[0],
-                0,
-                || self.v.map(Fp::from),
-            )?;
-            let rho_cell = region.assign_advice(|| "rho", config.hash.absorb[1], 0, || self.rho)?;
-            config
-                .hash
-                .perm_cells(&mut region, 1, dom_leaf_v2(), v_cell, rho_cell)
-        })?;
+        let h_cell = layouter.assign_region(
+            || "leaf-v2-hash",
+            |mut region| {
+                let v_cell = region.assign_advice(
+                    || "v",
+                    config.hash.absorb[0],
+                    0,
+                    || self.v.map(Fp::from),
+                )?;
+                let rho_cell =
+                    region.assign_advice(|| "rho", config.hash.absorb[1], 0, || self.rho)?;
+                config
+                    .hash
+                    .perm_cells(&mut region, 1, dom_leaf_v2(), v_cell, rho_cell)
+            },
+        )?;
         // AssignedCell is not Copy and assign_region takes FnMut, so the
         // captured cell must be cloned, not moved (E0507/E0382 otherwise).
-        let (x_cell, y_cell) = layouter.assign_region(|| "leaf-v2-term", |mut region| {
-            config.assign_term(&mut region, h_cell.clone(), self.corrupt)
-        })?;
+        let (x_cell, y_cell) = layouter.assign_region(
+            || "leaf-v2-term",
+            |mut region| config.assign_term(&mut region, h_cell.clone(), self.corrupt),
+        )?;
         layouter.constrain_instance(h_cell.cell(), config.hash.instance, 0)?;
         layouter.constrain_instance(x_cell.cell(), config.fb.instance, 0)?;
         layouter.constrain_instance(y_cell.cell(), config.fb.instance, 1)?;
@@ -911,10 +915,7 @@ mod tests {
         // Deterministic across calls.
         assert_eq!(fb_multiples(leaf_gen()), fb_multiples(leaf_gen()));
         // Distinct hashgen bases give distinct tables [S4 2].
-        assert_ne!(
-            fb_multiples(value_gen())[1],
-            fb_multiples(blind_gen())[1]
-        );
+        assert_ne!(fb_multiples(value_gen())[1], fb_multiples(blind_gen())[1]);
     }
 
     #[test]
@@ -950,8 +951,7 @@ mod tests {
             r: Fq::ZERO,
             corrupt: false,
         };
-        let prover =
-            MockProver::run(8, &circuit, vec![vec![], vec![Fp::ZERO, Fp::ZERO]]).unwrap();
+        let prover = MockProver::run(8, &circuit, vec![vec![], vec![Fp::ZERO, Fp::ZERO]]).unwrap();
         prover.verify().unwrap();
     }
 

@@ -229,9 +229,7 @@ impl SwapSession {
         match (self.phase, self.role) {
             // taker locked nothing yet, or the lock window passed
             (Phase::Accepted, Role::Taker) => {
-                if current_height
-                    <= self.accepted_height + self.offer.fund_timeout_blocks
-                {
+                if current_height <= self.accepted_height + self.offer.fund_timeout_blocks {
                     return Err(SwapError::NotTimedOut);
                 }
             }
@@ -261,10 +259,10 @@ mod tests {
 
     fn offer() -> Offer {
         Offer::new(
-            2_000_000_000_000,   // 2 XMR
-            1_000_000_000,       // GHOST atoms
-            100,                 // fund timeout
-            200,                 // claim timeout
+            2_000_000_000_000, // 2 XMR
+            1_000_000_000,     // GHOST atoms
+            100,               // fund timeout
+            200,               // claim timeout
             "ghost-maker-addr",
             "xmr-taker-addr",
             &[42u8; 32],
@@ -303,10 +301,7 @@ mod tests {
         assert_eq!(taker.mark_ghost_locked(100), Err(SwapError::WrongPhase));
         // maker session cannot claim before locks
         let mut maker = SwapSession::make_offer(offer(), 100);
-        assert_eq!(
-            maker.claim(&[42u8; 32], 100),
-            Err(SwapError::WrongPhase)
-        );
+        assert_eq!(maker.claim(&[42u8; 32], 100), Err(SwapError::WrongPhase));
     }
 
     #[test]
@@ -314,10 +309,7 @@ mod tests {
         let mut taker = SwapSession::accept(offer(), 100);
         taker.lock_xmr(100).unwrap();
         taker.mark_ghost_locked(100).unwrap();
-        assert_eq!(
-            taker.claim(&[7u8; 32], 100),
-            Err(SwapError::BadPreimage)
-        );
+        assert_eq!(taker.claim(&[7u8; 32], 100), Err(SwapError::BadPreimage));
     }
 
     #[test]

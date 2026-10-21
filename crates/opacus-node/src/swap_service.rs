@@ -92,12 +92,12 @@ impl SwapService {
         xmr_tx_hash: &str,
         lock_height: u64,
     ) -> Result<usize, NetError> {
-        let wire = self
-            .node
-            .net()
-            .lock()
-            .unwrap()
-            .publish_xmr_lock(offer_id, xmr_tx_hash, lock_height)?;
+        let wire =
+            self.node
+                .net()
+                .lock()
+                .unwrap()
+                .publish_xmr_lock(offer_id, xmr_tx_hash, lock_height)?;
         self.node.send_wire(&wire)
     }
 
@@ -109,12 +109,11 @@ impl SwapService {
         ghost_tx_ref: &str,
         lock_height: u64,
     ) -> Result<usize, NetError> {
-        let wire = self
-            .node
-            .net()
-            .lock()
-            .unwrap()
-            .publish_ghost_lock(offer_id, ghost_tx_ref, lock_height)?;
+        let wire = self.node.net().lock().unwrap().publish_ghost_lock(
+            offer_id,
+            ghost_tx_ref,
+            lock_height,
+        )?;
         self.node.send_wire(&wire)
     }
 
@@ -239,7 +238,7 @@ pub fn autostart_from_env() -> bool {
 mod tests {
     use super::*;
     use opacus_network::swap_node::{
-        encode_frame, hashlock_of, offer_id_of, Frame, Phase, SwapNetMessage, SwapNetError,
+        encode_frame, hashlock_of, offer_id_of, Frame, Phase, SwapNetError, SwapNetMessage,
         SwapOfferPayload,
     };
     use std::time::{Duration, Instant};
@@ -328,10 +327,7 @@ mod tests {
 
         // 2500 > 1234 + 100: past the fund deadline -> protocol rejection
         let err = svc.xmr_lock(&id, "xmr-tx-late", 2500).unwrap_err();
-        assert!(matches!(
-            err,
-            NetError::Protocol(SwapNetError::State(_))
-        ));
+        assert!(matches!(err, NetError::Protocol(SwapNetError::State(_))));
     }
 
     /// THE e2e: full choreography Offer -> Accept -> XmrLocked ->

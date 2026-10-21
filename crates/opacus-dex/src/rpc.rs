@@ -72,12 +72,13 @@ impl<T: Transport> EthClient<T> {
         self.next_id.set(id + 1);
         let body = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
         let resp = self.transport.post(&self.url, &body)?;
-        let env: RpcEnvelope = serde_json::from_value(resp)
-            .map_err(|e| EthError::BadResponse(e.to_string()))?;
+        let env: RpcEnvelope =
+            serde_json::from_value(resp).map_err(|e| EthError::BadResponse(e.to_string()))?;
         if let Some(err) = env.error {
             return Err(EthError::Rpc(err.to_string()));
         }
-        env.result.ok_or_else(|| EthError::BadResponse("missing result".into()))
+        env.result
+            .ok_or_else(|| EthError::BadResponse("missing result".into()))
     }
 
     /// eth_call: read-only execution of `data` against `to`.
@@ -89,7 +90,9 @@ impl<T: Transport> EthClient<T> {
                 "latest"
             ]),
         )?;
-        let s = res.as_str().ok_or_else(|| EthError::BadResponse("eth_call: not a string".into()))?;
+        let s = res
+            .as_str()
+            .ok_or_else(|| EthError::BadResponse("eth_call: not a string".into()))?;
         hex::decode(s.strip_prefix("0x").unwrap_or(s))
             .map_err(|e| EthError::BadResponse(format!("hex: {e}")))
     }
@@ -110,7 +113,11 @@ impl<T: Transport> EthClient<T> {
     }
 
     /// eth_estimateGas for a call envelope.
-    pub fn estimate_gas(&self, from: Address, call: &crate::uniswap::Call) -> Result<u64, EthError> {
+    pub fn estimate_gas(
+        &self,
+        from: Address,
+        call: &crate::uniswap::Call,
+    ) -> Result<u64, EthError> {
         let res = self.call(
             "eth_estimateGas",
             json!([{
@@ -189,9 +196,9 @@ mod tests {
     #[test]
     fn rpc_error_propagates() {
         let transport = FakeTransport {
-            respond: Box::new(|_, _| {
-                json!({"id": 1, "error": {"code": -32000, "message": "execution reverted"}})
-            }),
+            respond: Box::new(
+                |_, _| json!({"id": 1, "error": {"code": -32000, "message": "execution reverted"}}),
+            ),
         };
         let client = EthClient::with_transport("http://fake", transport);
         let err = client.eth_call(Address([1; 20]), &[]).unwrap_err();

@@ -18,9 +18,7 @@
 //! Disabled slots are zero-padded; for RC points the (0, 0) pair is the
 //! encoded identity of the Phase 1b fixed-base gates.
 
-use crate::spend::{
-    coords, V4SpendCircuit, MAX_IN, MAX_OUT, SPEND_INSTANCE_SLOTS,
-};
+use crate::spend::{coords, V4SpendCircuit, MAX_IN, MAX_OUT, SPEND_INSTANCE_SLOTS};
 use crate::v4::fq_reduce_fp;
 use ff::Field;
 use halo2_proofs::circuit::Value;
@@ -29,7 +27,7 @@ use pasta_curves::Fp;
 // Re-exports so downstream crates (opacus-wallet) can drive the v4 pipeline
 // without adding pasta_curves/group to their own manifests.
 pub use group::{Curve, Group, GroupEncoding};
-pub use pasta_curves::{pallas, Fq, vesta};
+pub use pasta_curves::{pallas, vesta, Fq};
 
 /// Normative public instance vector [S4 8] of a v4 spend.
 ///
@@ -96,7 +94,11 @@ pub fn mock_verify_v4<const DEPTH: usize>(
     n_out: usize,
     instances: &[Fp],
 ) -> Result<(), String> {
-    assert_eq!(instances.len(), SPEND_INSTANCE_SLOTS, "instance slot invariant");
+    assert_eq!(
+        instances.len(),
+        SPEND_INSTANCE_SLOTS,
+        "instance slot invariant"
+    );
     let circuit: V4SpendCircuit<DEPTH> = V4SpendCircuit {
         witness: Value::known(witness.clone()),
         r_in: r_in.to_vec(),
@@ -117,7 +119,9 @@ pub fn mock_verify_v4<const DEPTH: usize>(
 #[cfg(feature = "real-prover")]
 mod real {
     use super::*;
-    use halo2_proofs::plonk::{self, create_proof, keygen_pk, keygen_vk, verify_proof, SingleVerifier};
+    use halo2_proofs::plonk::{
+        self, create_proof, keygen_pk, keygen_vk, verify_proof, SingleVerifier,
+    };
     use halo2_proofs::poly::commitment::Params;
     use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
     use rand::rngs::OsRng;
@@ -142,8 +146,12 @@ mod real {
         n_out: usize,
         instances: &[Fp],
     ) -> Result<V4Proof, plonk::Error> {
-        assert_eq!(instances.len(), SPEND_INSTANCE_SLOTS, "instance slot invariant");
-        assert!(n_in >= 1 && n_in <= MAX_IN && n_out >= 1 && n_out <= MAX_OUT);
+        assert_eq!(
+            instances.len(),
+            SPEND_INSTANCE_SLOTS,
+            "instance slot invariant"
+        );
+        assert!((1..=MAX_IN).contains(&n_in) && (1..=MAX_OUT).contains(&n_out));
         let circuit: V4SpendCircuit<DEPTH> = V4SpendCircuit {
             witness: Value::known(witness.clone()),
             r_in: r_in.to_vec(),
@@ -187,8 +195,12 @@ mod real {
         n_in: usize,
         n_out: usize,
     ) -> Result<(), plonk::Error> {
-        assert_eq!(instances.len(), SPEND_INSTANCE_SLOTS, "instance slot invariant");
-        assert!(n_in >= 1 && n_in <= MAX_IN && n_out >= 1 && n_out <= MAX_OUT);
+        assert_eq!(
+            instances.len(),
+            SPEND_INSTANCE_SLOTS,
+            "instance slot invariant"
+        );
+        assert!((1..=MAX_IN).contains(&n_in) && (1..=MAX_OUT).contains(&n_out));
         let circuit: V4SpendCircuit<DEPTH> = V4SpendCircuit {
             witness: Value::unknown(),
             r_in: vec![Fq::ZERO; n_in],
@@ -235,7 +247,7 @@ mod tests {
     use super::*;
     use crate::merkle;
     use crate::spend::{leaf_entry_v2, SpendNoteInput, SpendNoteOutput};
-    use crate::v4::{nullifier_v4, value_commit, value_gen, blind_gen};
+    use crate::v4::{blind_gen, nullifier_v4, value_commit, value_gen};
     use ff::Field;
     use rand::rngs::OsRng;
 
@@ -271,7 +283,8 @@ mod tests {
         // Full MAX topology fills all 15 slots with real data.
         let ns2: Vec<Fp> = (0..MAX_IN).map(|i| Fp::from(i as u64 + 1)).collect();
         let rc_in2: Vec<pallas::Point> = (0..MAX_IN).map(|i| g * Fq::from(i as u64 + 10)).collect();
-        let rc_out2: Vec<pallas::Point> = (0..MAX_OUT).map(|j| g * Fq::from(j as u64 + 20)).collect();
+        let rc_out2: Vec<pallas::Point> =
+            (0..MAX_OUT).map(|j| g * Fq::from(j as u64 + 20)).collect();
         let v2 = spend_instances(root, &ns2, &rc_in2, &rc_out2);
         assert_eq!(v2.len(), SPEND_INSTANCE_SLOTS);
         assert_eq!(v2[2], Fp::from(2u64));
@@ -337,7 +350,10 @@ mod tests {
 
         // The acc_root_point bridge is deterministic and binding.
         assert_eq!(acc_root_point(Fp::ZERO), pallas::Point::identity());
-        assert_eq!(acc_root_point(Fp::from(5u64)), pallas::Point::generator() * Fq::from(5));
+        assert_eq!(
+            acc_root_point(Fp::from(5u64)),
+            pallas::Point::generator() * Fq::from(5)
+        );
         assert_ne!(acc_root_point(root), acc_root_point(root + Fp::ONE));
     }
 }

@@ -207,7 +207,9 @@ mod tests {
             }
         }
         fn record(&self, url: &str, body: &Value) {
-            self.calls.borrow_mut().push((url.to_string(), body.clone()));
+            self.calls
+                .borrow_mut()
+                .push((url.to_string(), body.clone()));
         }
     }
 

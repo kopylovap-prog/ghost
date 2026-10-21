@@ -28,8 +28,13 @@ impl Commitment {
 
     pub fn commit_with_blinding(amount: u64, blinding: &Scalar) -> (Self, Scalar) {
         let amount_scalar = Scalar::from(amount);
-        let point = &amount_scalar * &RISTRETTO_BASEPOINT_POINT + blinding * &generator_h();
-        (Self { point: point.compress() }, *blinding)
+        let point = amount_scalar * RISTRETTO_BASEPOINT_POINT + blinding * generator_h();
+        (
+            Self {
+                point: point.compress(),
+            },
+            *blinding,
+        )
     }
 
     pub fn to_bytes(&self) -> [u8; 32] {
@@ -39,7 +44,9 @@ impl Commitment {
     pub fn add(&self, other: &Commitment) -> Commitment {
         let p1 = self.point.decompress().expect("valid point");
         let p2 = other.point.decompress().expect("valid point");
-        Commitment { point: (p1 + p2).compress() }
+        Commitment {
+            point: (p1 + p2).compress(),
+        }
     }
 }
 

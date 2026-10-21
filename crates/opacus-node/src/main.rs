@@ -28,7 +28,9 @@ async fn main() {
         .init();
 
     let args = Args::parse();
-    let expanded = args.data_dir.replace('~', &std::env::var("USERPROFILE").unwrap_or_default());
+    let expanded = args
+        .data_dir
+        .replace('~', &std::env::var("USERPROFILE").unwrap_or_default());
 
     let config = DaemonConfig {
         p2p_port: args.p2p_port,

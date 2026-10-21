@@ -63,11 +63,7 @@ impl OpacusDaemon {
     /// the state is untouched and the reason is reported. The full v0.4
     /// wire acceptance path lives in `opacus-consensus::v4`; the daemon is
     /// the node-facing wrapper.
-    pub fn submit_transaction(
-        &mut self,
-        height: u64,
-        raw: &[u8],
-    ) -> Result<(), DaemonError> {
+    pub fn submit_transaction(&mut self, height: u64, raw: &[u8]) -> Result<(), DaemonError> {
         accept_transaction::<32>(&self.params, height, raw, &mut self.consensus)
             .map_err(|e| DaemonError::TxRejected(e.to_string()))?;
         tracing::info!("tx accepted at height {height}");
@@ -87,7 +83,9 @@ impl OpacusDaemon {
     pub async fn run(&mut self) -> Result<(), DaemonError> {
         tracing::info!(
             "Ghost node running | P2P: {} | RPC: {} | net: {}",
-            self.config.p2p_port, self.config.rpc_port, self.config.network
+            self.config.p2p_port,
+            self.config.rpc_port,
+            self.config.network
         );
         tracing::info!("Press Ctrl+C to stop");
         loop {
@@ -97,7 +95,9 @@ impl OpacusDaemon {
         }
     }
 
-    pub fn height(&self) -> u64 { self.height }
+    pub fn height(&self) -> u64 {
+        self.height
+    }
 }
 
 #[cfg(test)]

@@ -113,7 +113,10 @@ pub enum FrameError {
     /// Fewer than 4 bytes of prefix.
     Truncated,
     /// Declared body length does not match the buffer.
-    BadLength { declared: usize, available: usize },
+    BadLength {
+        declared: usize,
+        available: usize,
+    },
     Json(String),
 }
 
@@ -121,8 +124,14 @@ impl std::fmt::Display for FrameError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FrameError::Truncated => write!(f, "frame truncated (no length prefix)"),
-            FrameError::BadLength { declared, available } => {
-                write!(f, "bad frame length: declared {declared}, available {available}")
+            FrameError::BadLength {
+                declared,
+                available,
+            } => {
+                write!(
+                    f,
+                    "bad frame length: declared {declared}, available {available}"
+                )
             }
             FrameError::Json(m) => write!(f, "frame json: {m}"),
         }
@@ -252,7 +261,9 @@ fn offer_from_payload(p: &SwapOfferPayload) -> Result<Offer, SwapNetError> {
         return Err(SwapNetError::MalformedOffer("non-positive timeout"));
     }
     if p.fund_timeout_blocks > p.claim_timeout_blocks {
-        return Err(SwapNetError::MalformedOffer("fund timeout exceeds claim timeout"));
+        return Err(SwapNetError::MalformedOffer(
+            "fund timeout exceeds claim timeout",
+        ));
     }
     if p.maker_ghost_address.is_empty() || p.taker_xmr_address.is_empty() {
         return Err(SwapNetError::MalformedOffer("empty address"));
@@ -312,9 +323,7 @@ impl SwapNet {
 
     fn tracked_mut(&mut self, offer_id_hex: &str) -> Result<&mut TrackedSession, SwapNetError> {
         let id = parse_hex32(offer_id_hex)?;
-        self.sessions
-            .get_mut(&id)
-            .ok_or(SwapNetError::UnknownOffer)
+        self.sessions.get_mut(&id).ok_or(SwapNetError::UnknownOffer)
     }
 
     // -- maker actions ------------------------------------------------------
@@ -350,7 +359,10 @@ impl SwapNet {
             offer_id: hex32(&offer_id),
             payload,
         });
-        Ok((hex32(&offer_id), encode_frame(&frame).map_err(|e| SwapNetError::Frame(e.to_string()))?))
+        Ok((
+            hex32(&offer_id),
+            encode_frame(&frame).map_err(|e| SwapNetError::Frame(e.to_string()))?,
+        ))
     }
 
     /// Maker: the GHOST lock is on-chain; announce it and reveal the
@@ -436,13 +448,12 @@ impl SwapNet {
             return Err(SwapNetError::ProtocolMismatch(frame.protocol));
         }
         let replies = self.handle_message(frame.msg, current_height)?;
-        Ok(replies
+        replies
             .iter()
             .map(|m| {
-                encode_frame(&Frame::new(m.clone()))
-                    .map_err(|e| SwapNetError::Frame(e.to_string()))
+                encode_frame(&Frame::new(m.clone())).map_err(|e| SwapNetError::Frame(e.to_string()))
             })
-            .collect::<Result<Vec<_>, _>>()?)
+            .collect::<Result<Vec<_>, _>>()
     }
 
     /// Core protocol transition. `current_height` is used for the taker's
@@ -518,10 +529,7 @@ impl SwapNet {
                 }
                 t.session.mark_ghost_locked(height)?;
                 t.ghost_tx_ref = Some(ghost_tx_ref);
-                Ok(vec![SwapNetMessage::Claim {
-                    offer_id,
-                    preimage,
-                }])
+                Ok(vec![SwapNetMessage::Claim { offer_id, preimage }])
             }
             SwapNetMessage::Claim { offer_id, preimage } => {
                 let pre = parse_hex32(&preimage)?;
@@ -592,7 +600,10 @@ mod tests {
         });
         let wire = encode_frame(&frame).unwrap();
         assert_eq!(decode_frame(&wire).unwrap(), frame);
-        assert_eq!(u32::from_le_bytes([wire[0], wire[1], wire[2], wire[3]]) as usize, wire.len() - 4);
+        assert_eq!(
+            u32::from_le_bytes([wire[0], wire[1], wire[2], wire[3]]) as usize,
+            wire.len() - 4
+        );
     }
 
     /// Full maker/taker choreography over actual wire bytes.
@@ -607,7 +618,10 @@ mod tests {
         let replies = taker.receive_frame(&offer_wire, 1005).unwrap();
         assert_eq!(replies.len(), 1);
         assert_eq!(taker.session_count(), 1);
-        assert_eq!(taker.session(&id_hex).unwrap().session.phase, Phase::Accepted);
+        assert_eq!(
+            taker.session(&id_hex).unwrap().session.phase,
+            Phase::Accepted
+        );
 
         // maker receives the Accept
         let replies = maker.receive_frame(&replies[0], 0).unwrap();
@@ -855,7 +869,9 @@ mod tests {
         let mut taker2 = SwapNet::new();
         taker2.receive_frame(&offer_wire, 100).unwrap();
         assert_eq!(
-            taker2.publish_refund(&id_hex, "too early", 150).unwrap_err(),
+            taker2
+                .publish_refund(&id_hex, "too early", 150)
+                .unwrap_err(),
             SwapNetError::State(SwapError::NotTimedOut)
         );
     }

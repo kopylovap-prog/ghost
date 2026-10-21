@@ -1,7 +1,7 @@
 //! Block
 
-use borsh::{BorshDeserialize, BorshSerialize};
 use crate::transaction::Transaction;
+use borsh::{BorshDeserialize, BorshSerialize};
 
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub struct BlockHeader {

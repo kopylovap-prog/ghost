@@ -18,9 +18,7 @@
 //! address and the GHOST note key belong to the same owner" without
 //! revealing `x`.
 
-use curve25519_dalek::constants::{
-    ED25519_BASEPOINT_POINT as G1, RISTRETTO_BASEPOINT_POINT as G2,
-};
+use curve25519_dalek::constants::{ED25519_BASEPOINT_POINT as G1, RISTRETTO_BASEPOINT_POINT as G2};
 use curve25519_dalek::edwards::CompressedEdwardsY;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::scalar::Scalar;
@@ -122,7 +120,9 @@ pub fn verify(kp: &KeyPair, proof: &DleqProof) -> Result<(), DleqError> {
 fn rand_bytes() -> [u8; 32] {
     use std::time::{SystemTime, UNIX_EPOCH};
     let mut seed = Vec::with_capacity(16);
-    let t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+    let t = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
     seed.extend_from_slice(&t.as_nanos().to_le_bytes());
     seed.extend_from_slice(&std::process::id().to_le_bytes());
     let mut out = [0u8; 32];

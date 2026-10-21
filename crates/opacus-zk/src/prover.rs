@@ -61,10 +61,7 @@ pub fn prove<const DEPTH: usize>(
 }
 
 /// Verify a proof against its public inputs.
-pub fn verify<const DEPTH: usize>(
-    k: u32,
-    p: &FcmpProof,
-) -> Result<(), halo2_proofs::plonk::Error> {
+pub fn verify<const DEPTH: usize>(k: u32, p: &FcmpProof) -> Result<(), halo2_proofs::plonk::Error> {
     let circuit: FcmpCircuit<DEPTH> = FcmpCircuit {
         witness: Value::unknown(),
     };
@@ -112,7 +109,7 @@ mod tests {
 
         // Tampered public root must not verify.
         let mut bad = proof.clone();
-        bad.root = bad.root + Fp::ONE;
+        bad.root += Fp::ONE;
         assert!(verify::<DEPTH>(10, &bad).is_err());
     }
 }

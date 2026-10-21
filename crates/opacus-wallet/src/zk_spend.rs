@@ -320,9 +320,7 @@ mod tests {
     #[test]
     fn witness_recomputes_root() {
         let mut tree = TreeState::new(4);
-        let notes: Vec<WalletNote> = (0..5)
-            .map(|i| WalletNote::random(100 + i as u64))
-            .collect();
+        let notes: Vec<WalletNote> = (0..5).map(|i| WalletNote::random(100 + i as u64)).collect();
         let mut idxs = Vec::new();
         for n in &notes {
             idxs.push(tree.append(n.commitment().expect("valid note")));
@@ -359,9 +357,7 @@ mod tests {
     #[test]
     fn spend_tx_prove_and_verify() {
         let mut tree = TreeState::new(4);
-        let notes: Vec<WalletNote> = (0..5)
-            .map(|i| WalletNote::random(100 + i as u64))
-            .collect();
+        let notes: Vec<WalletNote> = (0..5).map(|i| WalletNote::random(100 + i as u64)).collect();
         let mut idxs = Vec::new();
         for n in &notes {
             idxs.push(tree.append(n.commitment().expect("valid note")));
@@ -377,7 +373,7 @@ mod tests {
 
         // Tampered root must not verify.
         let mut bad = tx.clone();
-        bad.proof.root = bad.proof.root + Fp::ONE;
+        bad.proof.root += Fp::ONE;
         assert!(bad.verify_with_depth::<4>().is_err());
 
         // Output commitments are deterministic.

@@ -24,8 +24,17 @@ impl SpendingKey {
         let h = hex::encode(entropy);
         let mnemonic = format!(
             "ghost {} {} {} {} {} {} {} {} {} {} {}",
-            &h[0..6], &h[6..12], &h[12..18], &h[18..24], &h[24..30],
-            &h[30..36], &h[36..42], &h[42..48], &h[48..54], &h[54..60], &h[60..64]
+            &h[0..6],
+            &h[6..12],
+            &h[12..18],
+            &h[18..24],
+            &h[24..30],
+            &h[30..36],
+            &h[36..42],
+            &h[42..48],
+            &h[48..54],
+            &h[54..60],
+            &h[60..64]
         );
         Self::from_mnemonic(&mnemonic).expect("valid generated mnemonic")
     }
@@ -42,6 +51,10 @@ impl SpendingKey {
         h.update(b"ghost_view_derive_v1");
         h.update(mnemonic.as_bytes());
         let view: [u8; 32] = h.finalize().into();
-        Ok(Self { spend_key: spend, view_key: view, mnemonic: mnemonic.to_string() })
+        Ok(Self {
+            spend_key: spend,
+            view_key: view,
+            mnemonic: mnemonic.to_string(),
+        })
     }
 }

@@ -11,12 +11,16 @@ pub struct GhostHashContext {
 }
 
 impl Default for GhostHashContext {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GhostHashContext {
     pub fn new() -> Self {
-        Self { scratchpad: vec![0u8; SCRATCHPAD_SIZE] }
+        Self {
+            scratchpad: vec![0u8; SCRATCHPAD_SIZE],
+        }
     }
 
     pub fn hash(&mut self, input: &[u8]) -> [u8; 32] {

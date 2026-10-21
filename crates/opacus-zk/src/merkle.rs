@@ -32,7 +32,7 @@ pub fn empty_root(depth: usize) -> Fp {
 /// Collapse the `n` real nodes of the current level one step, pairing the
 /// trailing odd node with the empty-subtree root `Z_d` when needed.
 fn collapse(level: &[Fp], n: usize, z: Fp) -> Vec<Fp> {
-    let mut next = Vec::with_capacity((n + 1) / 2);
+    let mut next = Vec::with_capacity(n.div_ceil(2));
     let mut i = 0;
     while i < n {
         let left = level[i];
@@ -72,7 +72,11 @@ pub fn auth_path(leaves: &[Fp], index: usize, depth: usize) -> Vec<Fp> {
     let mut path = Vec::with_capacity(depth);
     for d in 0..depth {
         let sib = idx ^ 1;
-        path.push(if sib < n { level[sib] } else { empty_root_at(d) });
+        path.push(if sib < n {
+            level[sib]
+        } else {
+            empty_root_at(d)
+        });
         idx >>= 1;
         level = collapse(&level, n, empty_root_at(d));
         n = level.len();

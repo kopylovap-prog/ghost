@@ -12,25 +12,25 @@
 //! full IPA-based prover/verifier over the Pallas/Vesta cycle.
 
 pub mod circuit;
+pub mod fixed_base;
 pub mod merkle;
 pub mod poseidon;
-pub mod v4;
-pub mod fixed_base;
-pub mod spend;
-pub mod v4_prover;
 #[cfg(feature = "real-prover")]
 pub mod prover;
+pub mod spend;
+pub mod v4;
+pub mod v4_prover;
 
 /// Everything a wallet (or any downstream crate) typically needs from
 /// opacus-zk, in one import: `use opacus_zk::prelude::*;`
 pub mod prelude {
     pub use crate::circuit::FcmpWitness;
+    #[cfg(feature = "real-prover")]
+    pub use crate::prover::{prove, verify, FcmpProof};
     pub use crate::{merkle, Note, TREE_DEPTH_MAINNET};
     pub use ff::{Field, PrimeField};
     pub use pasta_curves::Fp;
     pub use rand::rngs::OsRng;
-    #[cfg(feature = "real-prover")]
-    pub use crate::prover::{prove, verify, FcmpProof};
 }
 
 use pasta_curves::Fp;

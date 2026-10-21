@@ -305,10 +305,8 @@ impl SwapNode {
     fn spawn_listener(self: &Arc<Self>) {
         let node = Arc::clone(self);
         std::thread::spawn(move || {
-            for conn in node.listener.incoming() {
-                if let Ok(stream) = conn {
-                    node.attach(stream);
-                }
+            for stream in node.listener.incoming().flatten() {
+                node.attach(stream);
             }
         });
     }
@@ -348,7 +346,11 @@ impl SwapNode {
     /// broadcast the Offer frame to all dialed peers. Returns the hex offer
     /// id. The offer is tracked even with zero peers connected.
     pub fn broadcast_offer(&self, offer: &Offer, preimage: &[u8; 32]) -> Result<String, NetError> {
-        let (id, wire) = self.net.lock().unwrap().publish_offer(offer.clone(), *preimage)?;
+        let (id, wire) = self
+            .net
+            .lock()
+            .unwrap()
+            .publish_offer(offer.clone(), *preimage)?;
         self.send_wire(&wire)?;
         Ok(id)
     }
@@ -615,7 +617,9 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         let mut client = TcpStream::connect(addr).unwrap();
         let (mut server, _) = listener.accept().unwrap();
-        server.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        server
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
 
         let frame = Frame::new(SwapNetMessage::Accept {
             offer_id: hex_str(&[0xabu8; 32]),
@@ -661,7 +665,10 @@ mod tests {
             .unwrap();
         assert_eq!(local_id, id);
         let err = node.process_wire(&wire).unwrap_err();
-        assert!(matches!(err, NetError::Protocol(SwapNetError::DuplicateOffer)));
+        assert!(matches!(
+            err,
+            NetError::Protocol(SwapNetError::DuplicateOffer)
+        ));
     }
 
     #[test]
@@ -670,7 +677,9 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         let mut client = TcpStream::connect(addr).unwrap();
         let (mut server, _) = listener.accept().unwrap();
-        server.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        server
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
         client.write_all(&[0xff, 0xff, 0xff, 0xff]).unwrap(); // 4 GiB
         let err = read_frame(&mut server, 1024).unwrap_err();
         assert!(matches!(err, NetError::TooLarge(_)));
@@ -797,8 +806,14 @@ mod tests {
         assert_eq!(t.session.phase, Phase::GhostLocked);
 
         // both directions actually saw traffic
-        assert!(maker.events().iter().any(|e| matches!(e, NodeEvent::Received(ref k) if k == "Claim")));
-        assert!(taker.events().iter().any(|e| matches!(e, NodeEvent::Replied(ref k) if k == "Claim")));
+        assert!(maker
+            .events()
+            .iter()
+            .any(|e| matches!(e, NodeEvent::Received(ref k) if k == "Claim")));
+        assert!(taker
+            .events()
+            .iter()
+            .any(|e| matches!(e, NodeEvent::Replied(ref k) if k == "Claim")));
     }
 
     /// The offerId binding: a tampered payload (same offer_id) is rejected

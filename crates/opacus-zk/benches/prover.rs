@@ -96,8 +96,14 @@ fn main() {
     let verify_s = t.elapsed().as_secs_f64();
 
     let over = prove_s - 10.0;
-    println!("prove_v4  (params + keygen + create_proof) = {:.2} s", prove_s);
-    println!("verify_v4 (params + vk rebuild + verify)   = {:.2} s", verify_s);
+    println!(
+        "prove_v4  (params + keygen + create_proof) = {:.2} s",
+        prove_s
+    );
+    println!(
+        "verify_v4 (params + vk rebuild + verify)   = {:.2} s",
+        verify_s
+    );
     println!("proof bytes = {}", proof.proof.len());
     if over > 0.0 {
         println!(
