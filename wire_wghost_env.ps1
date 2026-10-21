@@ -1,5 +1,5 @@
 # =============================================================================
-# wire_wghost_env.ps1  (ghost project - kopylovap-prog/ghost)
+# wire_wghost_env.ps1  (ghost project - opacusio/opacus)
 #
 # PURPOSE
 #   opacus-dex::wghost() currently returns the zero address until

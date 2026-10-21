@@ -1,5 +1,5 @@
 # =============================================================================
-# publish_ghost.ps1  v2  (ghost project - kopylovap-prog/ghost)
+# publish_ghost.ps1  v2  (ghost project - opacusio/opacus)
 #
 # Zero-typing GitHub publish of the ghost monorepo. Safe by construction:
 #
@@ -10,7 +10,7 @@
 #   STEP 3  git add -A + SECRET GATE: scans the index for keys, .env, .pem,
 #           backups, tools/ - auto-untracks offenders (files stay on disk)
 #   STEP 4  commit (skipped when nothing changed) + branch -> main
-#   STEP 5  remote origin -> https://github.com/kopylovap-prog/ghost.git
+#   STEP 5  remote origin -> https://github.com/opacusio/opacus.git
 #   STEP 6  push (gh credential helper when available; a GitHub login window
 #           popping up during push is NORMAL - complete it in the browser)
 #
@@ -34,7 +34,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference    = 'SilentlyContinue'
 
 $ProjectRoot = 'C:\Users\Mi\projects\ghost'
-$RepoUrl     = 'https://github.com/kopylovap-prog/ghost.git'
+$RepoUrl     = 'https://github.com/opacusio/opacus.git'
 $GiFile      = Join-Path $ProjectRoot '.gitignore'
 $ReadMe      = Join-Path $ProjectRoot 'README.md'
 $GitUser     = 'kopylovap-prog'
@@ -303,7 +303,7 @@ Write-Output ''
 Write-Output '============================================================='
 Write-Output ' GHOST PUBLISH COMPLETE'
 Write-Output '============================================================='
-Write-Output '  repo:   https://github.com/kopylovap-prog/ghost'
+Write-Output '  repo:   https://github.com/opacusio/opacus'
 Write-Output '  pushed: main (source, contracts, deploy scripts, docs)'
 Write-Output '  kept local only (git-ignored): deployer.key*, *.bak*,'
 Write-Output '    tools/, build artifacts (target/, out/, cache/)'

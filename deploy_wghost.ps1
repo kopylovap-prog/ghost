@@ -1,5 +1,5 @@
 # =============================================================================
-# deploy_wghost.ps1  (ghost project - kopylovap-prog/ghost)
+# deploy_wghost.ps1  (ghost project - opacusio/opacus)
 #
 # PURPOSE
 #   Full forge pipeline for the wGHOST bridge token, End-to-End rehearsed on

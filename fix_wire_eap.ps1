@@ -1,5 +1,5 @@
 # =============================================================================
-# fix_wire_eap.ps1  (ghost project - kopylovap-prog/ghost)
+# fix_wire_eap.ps1  (ghost project - opacusio/opacus)
 #
 # WHAT HAPPENED
 #   wire_opacusd_swap.ps1 aborted at STEP 6:

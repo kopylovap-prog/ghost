@@ -1,5 +1,5 @@
 ﻿# =============================================================================
-# run_sepolia_deploy.ps1  (ghost project - kopylovap-prog/ghost)
+# run_sepolia_deploy.ps1  (ghost project - opacusio/opacus)
 #
 # ONE-SHOT LAUNCHER for the wGHOST Sepolia deploy. Zero manual typing:
 #

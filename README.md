@@ -1,5 +1,7 @@
 # Ghost
 
+> **Website:** <https://opacus.io> &middot; **Repo:** <https://github.com/opacusio/opacus>
+
 Ghost is a privacy payment network that fuses the proven transaction model of
 Monero (ring-CT semantics, stealth addresses, Pedersen commitments) with
 zk-SNARK spend anonymity in the spirit of Zcash Halo2 / FCMP++: every spend
@@ -169,7 +171,7 @@ Prerequisites: a recent stable Rust toolchain (rustup), Git; Foundry (forge)
 for the contracts.
 
 ```
-git clone https://github.com/kopylovap-prog/ghost.git
+git clone https://github.com/opacusio/opacus.git
 cd ghost
 
 cargo build --release

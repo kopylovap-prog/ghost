@@ -1,5 +1,5 @@
 # =============================================================================
-# finalize_wghost.ps1  (ghost project - kopylovap-prog/ghost)
+# finalize_wghost.ps1  (ghost project - opacusio/opacus)
 #
 # Post-deploy finalizer for wGHOST on Sepolia. Zero typing: replaces the
 # manual "setx WGHOST_ADDRESS 0x..." step printed by the deploy banner

@@ -1,5 +1,5 @@
 ﻿# =============================================================================
-# fix_deployer_key.ps1  (ghost project - kopylovap-prog/ghost)
+# fix_deployer_key.ps1  (ghost project - opacusio/opacus)
 #
 # Replaces the PUBLIC anvil #0 key inside deployer.key with a fresh random
 # key. Zero typing: nothing to copy, nothing to paste.

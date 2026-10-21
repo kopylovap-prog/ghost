@@ -1,5 +1,5 @@
 ﻿# =============================================================================
-# fix_deploy_sol.ps1  (ghost project - kopylovap-prog/ghost)
+# fix_deploy_sol.ps1  (ghost project - opacusio/opacus)
 #
 # FIX FOR: deploy_wghost.ps1 crash at line 163, during STEP 2:
 #   Test-Path : "path contains invalid characters"
