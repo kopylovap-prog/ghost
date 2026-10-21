@@ -1,0 +1,12 @@
+[package]
+name = "opacus-miner"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+blake3.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+num_cpus.workspace = true
+parking_lot.workspace = true
+serde.workspace = true
+toml.workspace = true

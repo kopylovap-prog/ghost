@@ -1,4 +1,4 @@
-﻿# =============================================================================
+# =============================================================================
 # publish_ghost.ps1  v2  (ghost project - kopylovap-prog/ghost)
 #
 # Zero-typing GitHub publish of the ghost monorepo. Safe by construction:
@@ -168,14 +168,14 @@ if (-not (Test-Path -LiteralPath $ReadMe)) {
         'FCMP++ spend proofs, an Ethereum-side wrapped token (wGHOST) and DEX/bridge',
         'tooling.',
         '',
-        '- crates/ - Rust workspace: ghost-zk (Halo2 IPA circuits, real prover),',
-        '  ghost-wallet (shielded spend flow), ghost-bridge (Monero DLEq / atomic swap /',
-        '  RPC), ghost-dex (Uniswap calldata, EIP-155 signer)',
+        '- crates/ - Rust workspace: opacus-zk (Halo2 IPA circuits, real prover),',
+        '  opacus-wallet (shielded spend flow), opacus-bridge (Monero DLEq / atomic swap /',
+        '  RPC), opacus-dex (Uniswap calldata, EIP-155 signer)',
         '- contracts/ - wGHOST.sol (quorum-mint ERC20 wrapper) + forge test suite',
         '- zero-typing Sepolia deploy pipeline at the repo root:',
         '  run_sepolia_deploy.ps1 -> deploy_wghost.ps1 -> finalize_wghost.ps1',
         '',
-        'Status: testnet. ghost-zk: real IPA spend proof at mainnet tree depth (2^32).',
+        'Status: testnet. opacus-zk: real IPA spend proof at mainnet tree depth (2^32).',
         'wGHOST: deployed on Sepolia (contracts/wghost.address), quorum 1/1.',
         'Value conservation in-circuit is planned (v0.4). AUDIT REQUIRED before any',
         'mainnet use. Testnet keys are throwaway and never committed.'

@@ -1,0 +1,12 @@
+[package]
+name = "opacus-crypto"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+curve25519-dalek.workspace = true
+blake3.workspace = true
+rand.workspace = true
+zeroize.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+hex.workspace = true

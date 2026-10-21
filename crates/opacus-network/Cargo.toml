@@ -1,0 +1,7 @@
+[package]
+name = "opacus-network"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+opacus-bridge = { path = "../opacus-bridge" }
+serde.workspace = true

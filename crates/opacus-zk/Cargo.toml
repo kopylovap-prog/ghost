@@ -1,0 +1,22 @@
+[package]
+name = "opacus-zk"
+version = "0.4.0"
+edition = "2021"
+description = "Halo2-based FCMP-style zero-knowledge membership proofs for Ghost"
+
+[dependencies]
+halo2_proofs = "0.3"
+pasta_curves = "0.5"
+ff = "0.13"
+blake3 = "1"
+group = "0.13"
+thiserror = "1"
+rand = "0.8"
+
+[features]
+default = []
+real-prover = []
+
+[[bench]]
+name = "prover"
+harness = false

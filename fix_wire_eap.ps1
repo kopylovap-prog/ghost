@@ -3,8 +3,8 @@
 #
 # WHAT HAPPENED
 #   wire_ghostd_swap.ps1 aborted at STEP 6:
-#     $netOut = cargo test -p ghost-network --release 2>&1
-#     -> NativeCommandError / RemoteException on "Compiling ghost-network"
+#     $netOut = cargo test -p opacus-network --release 2>&1
+#     -> NativeCommandError / RemoteException on "Compiling opacus-network"
 #   Root cause (PowerShell 5.1 quirk, NOT a cargo failure):
 #     cargo writes its progress ("Compiling ...") to STDERR.
 #     Under $ErrorActionPreference = "Stop" (line 16 of the wire script),
@@ -15,9 +15,9 @@
 #   Route stderr-merging captures through cmd.exe so stderr is merged into
 #   stdout BEFORE PowerShell sees it (plain strings only, EAP=Stop safe,
 #   $LASTEXITCODE still propagates the cargo exit code):
-#     $netOut = cargo test -p ghost-network --release 2>&1
+#     $netOut = cargo test -p opacus-network --release 2>&1
 #   becomes
-#     $netOut = cmd /c "cargo test -p ghost-network --release 2>&1"
+#     $netOut = cmd /c "cargo test -p opacus-network --release 2>&1"
 #
 #   - idempotent: transformed lines no longer match; safe to re-run
 #   - backup: wire_ghostd_swap.ps1.bak-eap1 (kept, never overwritten)

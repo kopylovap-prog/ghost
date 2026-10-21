@@ -1,0 +1,22 @@
+[package]
+name = "opacus-node"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "opacus_node"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ghostd"
+path = "src/main.rs"
+
+[dependencies]
+opacus-consensus = { path = "../opacus-consensus" }
+opacus-network = { path = "../opacus-network" }
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap.workspace = true
+dirs.workspace = true
+thiserror.workspace = true

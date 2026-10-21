@@ -1,0 +1,11 @@
+[package]
+name = "opacus-consensus"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+opacus-crypto = { path = "../opacus-crypto" }
+opacus-zk = { path = "../opacus-zk", features = ["real-prover"] }
+opacus-wallet = { path = "../opacus-wallet" }
+borsh.workspace = true
+blake3.workspace = true
+thiserror.workspace = true

@@ -1,11 +1,11 @@
-﻿# add_swap_p2p.ps1
+# add_swap_p2p.ps1
 # Ghost project - P2P message layer for XMR<->GHOST atomic swaps
-# (ghost-bridge/src/swap_p2p.rs: SwapNet, framed JSON wire protocol over
+# (opacus-bridge/src/swap_p2p.rs: SwapNet, framed JSON wire protocol over
 # xmr_swap state machine, offer/accept/lock/claim/refund) + foundry deploy
 # kit for wGHOST (contracts/wGHOST.s.sol, contracts/foundry.toml).
 # Additive only: 1 new module + idempotent 'pub mod swap_p2p;' registration.
 # Generated 2026-10-18 - sandbox verified:
-# ghost-bridge 27 passed / 0 failed (15 existing + 12 new), zero warnings.
+# opacus-bridge 27 passed / 0 failed (15 existing + 12 new), zero warnings.
 
 $ErrorActionPreference = "Stop"
 
@@ -18,8 +18,8 @@ if (!(Get-Command cargo -ErrorAction SilentlyContinue)) {
     Write-Host "ERROR: cargo not found in PATH." -ForegroundColor Red
     exit 1
 }
-if (!(Test-Path (Join-Path $ProjectRoot "crates\ghost-bridge"))) {
-    Write-Host "ERROR: crates\ghost-bridge not found." -ForegroundColor Red
+if (!(Test-Path (Join-Path $ProjectRoot "crates\opacus-bridge"))) {
+    Write-Host "ERROR: crates\opacus-bridge not found." -ForegroundColor Red
     exit 1
 }
 
@@ -31,10 +31,10 @@ function Write-Text([string]$Path, [string]$Content) {
 }
 
 # ---- 0) backups ----
-$p = Join-Path $ProjectRoot "crates\ghost-bridge\src\lib.rs"
+$p = Join-Path $ProjectRoot "crates\opacus-bridge\src\lib.rs"
 if (Test-Path $p) {
     Copy-Item $p "$p.bak-p2p" -Force
-    Write-Host "  backup -> ghost-bridge\src\lib.rs.bak-p2p"
+    Write-Host "  backup -> opacus-bridge\src\lib.rs.bak-p2p"
 }
 foreach ($f in @("contracts\wGHOST.s.sol", "contracts\foundry.toml")) {
     $p = Join-Path $ProjectRoot $f
@@ -44,8 +44,8 @@ foreach ($f in @("contracts\wGHOST.s.sol", "contracts\foundry.toml")) {
     }
 }
 
-# ---- crates\ghost-bridge\src\swap_p2p.rs ----
-Write-Text (Join-Path $ProjectRoot "crates\ghost-bridge\src\swap_p2p.rs") @'
+# ---- crates\opacus-bridge\src\swap_p2p.rs ----
+Write-Text (Join-Path $ProjectRoot "crates\opacus-bridge\src\swap_p2p.rs") @'
 //! P2P message layer for XMR <-> GHOST atomic swaps (v0.1).
 //!
 //! Transport-agnostic coordination protocol on top of [`crate::xmr_swap`]:
@@ -931,7 +931,7 @@ import {WGHOST} from "./wGHOST.sol";
 ///     forge script wGHOSTDeploy --rpc-url $SEPOLIA_RPC_URL \
 ///         --private-key $DEPLOYER_KEY --broadcast --verify
 ///
-/// After deployment call set_wghost(addr) on the ghost-dex side.
+/// After deployment call set_wghost(addr) on the opacus-dex side.
 contract wGHOSTDeploy is Script {
     function run() external {
         // Anvil well-known accounts as defaults for local testing.
@@ -963,8 +963,8 @@ solc_version = "0.8.24"
 
 '@
 
-# ---- 1) ghost-bridge/src/lib.rs: declare the module (idempotent) ----
-$libPath = Join-Path $ProjectRoot "crates\ghost-bridge\src\lib.rs"
+# ---- 1) opacus-bridge/src/lib.rs: declare the module (idempotent) ----
+$libPath = Join-Path $ProjectRoot "crates\opacus-bridge\src\lib.rs"
 $lib = [System.IO.File]::ReadAllText($libPath)
 if ($lib -notmatch '(?m)^\s*(pub\s+)?mod\s+swap_p2p\s*;') {
     if (!$lib.EndsWith("`n")) { $lib += "`r`n" }
@@ -979,8 +979,8 @@ if ($lib -notmatch '(?m)^\s*(pub\s+)?mod\s+swap_p2p\s*;') {
 Write-Host ""
 Push-Location $ProjectRoot
 try {
-    Write-Host "=== running: cargo test -p ghost-bridge --release ===" -ForegroundColor Cyan
-    cargo test -p ghost-bridge --release
+    Write-Host "=== running: cargo test -p opacus-bridge --release ===" -ForegroundColor Cyan
+    cargo test -p opacus-bridge --release
     if ($LASTEXITCODE -ne 0) {
         Write-Host "SWAP P2P TESTS FAILED - paste the output above back to the assistant" -ForegroundColor Red
         exit 1
@@ -992,7 +992,7 @@ try {
 
 Write-Host ""
 Write-Host "What you got:" -ForegroundColor Cyan
-Write-Host "  ghost-bridge/swap_p2p.rs: SwapNetMessage (Offer/Accept/XmrLocked/GhostLocked/Claim/Refund),"
+Write-Host "  opacus-bridge/swap_p2p.rs: SwapNetMessage (Offer/Accept/XmrLocked/GhostLocked/Claim/Refund),"
 Write-Host "    u32-LE framed JSON wire codec, offer_id = blake3(canonical payload JSON),"
 Write-Host "    SwapNet session registry: tamper/duplicate/replay/preimage/deadline validation"
 Write-Host "  contracts/wGHOST.s.sol + foundry.toml: forge script wGHOSTDeploy (anvil defaults / Sepolia env)"

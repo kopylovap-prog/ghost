@@ -1,10 +1,10 @@
-﻿# add_bridge_dex.ps1
+# add_bridge_dex.ps1
 # Ghost project - Monero bridge (DLEq + swap protocol + monero-rpc) and
-# Uniswap V2 integration (ghost-dex crate) + wGHOST.sol contract.
-# Additive only: 3 new files in ghost-bridge, a brand-new ghost-dex crate,
-# dependency additions to ghost-bridge/Cargo.toml and lib.rs mods.
-# Generated 2026-10-17 - sandbox verified: ghost-bridge 15 passed,
-# ghost-dex 13 passed (incl. EIP-155 sign -> RLP decode -> sender recovery e2e).
+# Uniswap V2 integration (opacus-dex crate) + wGHOST.sol contract.
+# Additive only: 3 new files in opacus-bridge, a brand-new opacus-dex crate,
+# dependency additions to opacus-bridge/Cargo.toml and lib.rs mods.
+# Generated 2026-10-17 - sandbox verified: opacus-bridge 15 passed,
+# opacus-dex 13 passed (incl. EIP-155 sign -> RLP decode -> sender recovery e2e).
 
 $ErrorActionPreference = "Stop"
 
@@ -21,8 +21,8 @@ if (!(Test-Path (Join-Path $ProjectRoot "Cargo.toml"))) {
     Write-Host "ERROR: $ProjectRoot\Cargo.toml not found." -ForegroundColor Red
     exit 1
 }
-if (!(Test-Path (Join-Path $ProjectRoot "crates\ghost-bridge"))) {
-    Write-Host "ERROR: crates\ghost-bridge not found." -ForegroundColor Red
+if (!(Test-Path (Join-Path $ProjectRoot "crates\opacus-bridge"))) {
+    Write-Host "ERROR: crates\opacus-bridge not found." -ForegroundColor Red
     exit 1
 }
 
@@ -35,15 +35,15 @@ function Write-Text([string]$Path, [string]$Content) {
 
 # ---- 0) backup existing bridge files we might touch ----
 foreach ($f in @("Cargo.toml", "src\lib.rs")) {
-    $p = Join-Path $ProjectRoot "crates\ghost-bridge\$f"
+    $p = Join-Path $ProjectRoot "crates\opacus-bridge\$f"
     if (Test-Path $p) {
         Copy-Item $p "$p.bak-bridge" -Force
-        Write-Host "  backup -> ghost-bridge\$f.bak-bridge"
+        Write-Host "  backup -> opacus-bridge\$f.bak-bridge"
     }
 }
 
-# ---- crates\ghost-bridge\src\xmr_dleq.rs ----
-Write-Text (Join-Path $ProjectRoot "crates\ghost-bridge\src\xmr_dleq.rs") @'
+# ---- crates\opacus-bridge\src\xmr_dleq.rs ----
+Write-Text (Join-Path $ProjectRoot "crates\opacus-bridge\src\xmr_dleq.rs") @'
 //! Cross-group DLEq proof: one secret scalar `x` is proven to control BOTH
 //!
 //! * an Ed25519/Monero key  `A1 = x * G1`  (EdwardsPoint, Monero basepoint), and
@@ -256,8 +256,8 @@ mod tests {
 
 '@
 
-# ---- crates\ghost-bridge\src\xmr_swap.rs ----
-Write-Text (Join-Path $ProjectRoot "crates\ghost-bridge\src\xmr_swap.rs") @'
+# ---- crates\opacus-bridge\src\xmr_swap.rs ----
+Write-Text (Join-Path $ProjectRoot "crates\opacus-bridge\src\xmr_swap.rs") @'
 //! XMR <-> GHOST atomic swap protocol (v0.1 coordination layer).
 //!
 //! Direction: the Maker sells native GHOST and buys XMR; the Taker sells
@@ -623,8 +623,8 @@ mod tests {
 
 '@
 
-# ---- crates\ghost-bridge\src\xmr_rpc.rs ----
-Write-Text (Join-Path $ProjectRoot "crates\ghost-bridge\src\xmr_rpc.rs") @'
+# ---- crates\opacus-bridge\src\xmr_rpc.rs ----
+Write-Text (Join-Path $ProjectRoot "crates\opacus-bridge\src\xmr_rpc.rs") @'
 //! monero-wallet-rpc / monerod JSON-RPC client (request builders + response
 //! parsers, transport-agnostic). Plug any HTTP transport into [`Transport`].
 
@@ -938,10 +938,10 @@ mod tests {
 
 '@
 
-# ---- crates\ghost-dex\Cargo.toml ----
-Write-Text (Join-Path $ProjectRoot "crates\ghost-dex\Cargo.toml") @'
+# ---- crates\opacus-dex\Cargo.toml ----
+Write-Text (Join-Path $ProjectRoot "crates\opacus-dex\Cargo.toml") @'
 [package]
-name = "ghost-dex"
+name = "opacus-dex"
 version = "0.1.0"
 edition = "2021"
 description = "Uniswap integration for Ghost: EIP-155 tx signing, Uniswap V2 router calldata, wGHOST helpers"
@@ -959,9 +959,9 @@ rand = "0.8"
 
 '@
 
-# ---- crates\ghost-dex\src\lib.rs ----
-Write-Text (Join-Path $ProjectRoot "crates\ghost-dex\src\lib.rs") @'
-//! # ghost-dex
+# ---- crates\opacus-dex\src\lib.rs ----
+Write-Text (Join-Path $ProjectRoot "crates\opacus-dex\src\lib.rs") @'
+//! # opacus-dex
 //!
 //! Uniswap (Ethereum) integration for Ghost.
 //!
@@ -974,7 +974,7 @@ Write-Text (Join-Path $ProjectRoot "crates\ghost-dex\src\lib.rs") @'
 //!    sendRawTransaction) over any [`rpc::Transport`].
 //!
 //! wGHOST flow (see `contracts/wGHOST.sol` in the repo):
-//! 1. Lock native GHOST with the bridge (ghost-bridge).
+//! 1. Lock native GHOST with the bridge (opacus-bridge).
 //! 2. Bridge quorum attests; wGHOST is minted to your EVM address.
 //! 3. `approve(wGHOST, Router)` then `swap_exact_tokens_for_tokens(...)`.
 //! 4. To return: swap back to wGHOST, `burn` via the bridge, unlock native.
@@ -990,8 +990,8 @@ pub use tx::{Address, TxParams};
 
 '@
 
-# ---- crates\ghost-dex\src\rlp.rs ----
-Write-Text (Join-Path $ProjectRoot "crates\ghost-dex\src\rlp.rs") @'
+# ---- crates\opacus-dex\src\rlp.rs ----
+Write-Text (Join-Path $ProjectRoot "crates\opacus-dex\src\rlp.rs") @'
 //! Minimal RLP encoding (Ethereum legacy transactions).
 
 /// An RLP-encodable value.
@@ -1107,8 +1107,8 @@ mod tests {
 
 '@
 
-# ---- crates\ghost-dex\src\abi.rs ----
-Write-Text (Join-Path $ProjectRoot "crates\ghost-dex\src\abi.rs") @'
+# ---- crates\opacus-dex\src\abi.rs ----
+Write-Text (Join-Path $ProjectRoot "crates\opacus-dex\src\abi.rs") @'
 //! Minimal Ethereum ABI encoding for the subset Uniswap integration needs:
 //! uint256, address, bool, dynamic address[] and function selectors.
 
@@ -1318,8 +1318,8 @@ mod tests {
 
 '@
 
-# ---- crates\ghost-dex\src\tx.rs ----
-Write-Text (Join-Path $ProjectRoot "crates\ghost-dex\src\tx.rs") @'
+# ---- crates\opacus-dex\src\tx.rs ----
+Write-Text (Join-Path $ProjectRoot "crates\opacus-dex\src\tx.rs") @'
 //! Ethereum legacy (EIP-155) transaction building and signing.
 
 use crate::abi::keccak256;
@@ -1560,8 +1560,8 @@ mod tests {
 
 '@
 
-# ---- crates\ghost-dex\src\uniswap.rs ----
-Write-Text (Join-Path $ProjectRoot "crates\ghost-dex\src\uniswap.rs") @'
+# ---- crates\opacus-dex\src\uniswap.rs ----
+Write-Text (Join-Path $ProjectRoot "crates\opacus-dex\src\uniswap.rs") @'
 //! Uniswap V2 Router02 calldata builders (mainnet Router02:
 //! 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D).
 
@@ -1784,8 +1784,8 @@ mod tests {
 
 '@
 
-# ---- crates\ghost-dex\src\rpc.rs ----
-Write-Text (Join-Path $ProjectRoot "crates\ghost-dex\src\rpc.rs") @'
+# ---- crates\opacus-dex\src\rpc.rs ----
+Write-Text (Join-Path $ProjectRoot "crates\opacus-dex\src\rpc.rs") @'
 //! Ethereum JSON-RPC client (read calls + raw tx broadcast) over a pluggable
 //! transport. The default HTTP transport uses `ureq`.
 
@@ -1989,8 +1989,8 @@ mod tests {
 
 '@
 
-# ---- crates\ghost-dex\src\wghost.rs ----
-Write-Text (Join-Path $ProjectRoot "crates\ghost-dex\src\wghost.rs") @'
+# ---- crates\opacus-dex\src\wghost.rs ----
+Write-Text (Join-Path $ProjectRoot "crates\opacus-dex\src\wghost.rs") @'
 //! wGHOST helpers: the ERC20 side of the Ghost bridge on Ethereum.
 //!
 //! The token contract lives in `contracts/wGHOST.sol`. Until it is deployed,
@@ -2198,8 +2198,8 @@ contract WGHOST {
 
 '@
 
-# ---- 1) ghost-bridge/Cargo.toml: add bridge deps (idempotent) ----
-$tomlPath = Join-Path $ProjectRoot "crates\ghost-bridge\Cargo.toml"
+# ---- 1) opacus-bridge/Cargo.toml: add bridge deps (idempotent) ----
+$tomlPath = Join-Path $ProjectRoot "crates\opacus-bridge\Cargo.toml"
 $deps = @(
     'curve25519-dalek = { version = "4", features = ["rand_core"] }',
     'blake3 = "1"',
@@ -2231,13 +2231,13 @@ if ($pending.Count -gt 0 -and !$inserted) {
 }
 if ($pending.Count -gt 0) {
     [System.IO.File]::WriteAllLines($tomlPath, $out, (New-Object System.Text.UTF8Encoding($false)))
-    Write-Host ("  added " + $pending.Count + " deps to ghost-bridge\Cargo.toml")
+    Write-Host ("  added " + $pending.Count + " deps to opacus-bridge\Cargo.toml")
 } else {
-    Write-Host "  ghost-bridge deps already present"
+    Write-Host "  opacus-bridge deps already present"
 }
 
-# ---- 2) ghost-bridge/src/lib.rs: declare the modules (idempotent) ----
-$libPath = Join-Path $ProjectRoot "crates\ghost-bridge\src\lib.rs"
+# ---- 2) opacus-bridge/src/lib.rs: declare the modules (idempotent) ----
+$libPath = Join-Path $ProjectRoot "crates\opacus-bridge\src\lib.rs"
 $lib = [System.IO.File]::ReadAllText($libPath)
 $mods = @("xmr_dleq", "xmr_swap", "xmr_rpc")
 $toAdd = @()
@@ -2255,28 +2255,28 @@ if ($toAdd.Count -gt 0) {
     Write-Host "  bridge modules already declared"
 }
 
-# ---- 3) register ghost-dex in workspace members (idempotent) ----
+# ---- 3) register opacus-dex in workspace members (idempotent) ----
 $rootToml = Join-Path $ProjectRoot "Cargo.toml"
 $rootContent = [System.IO.File]::ReadAllText($rootToml)
-if ($rootContent -notmatch [regex]::Escape("crates/ghost-dex")) {
+if ($rootContent -notmatch [regex]::Escape("crates/opacus-dex")) {
     $pattern = '(?m)^(members\s*=\s*\[)'
     if ($rootContent -match $pattern) {
-        $rootContent = [regex]::Replace($rootContent, $pattern, "`$1`n    `"crates/ghost-dex`",")
+        $rootContent = [regex]::Replace($rootContent, $pattern, "`$1`n    `"crates/opacus-dex`",")
         [System.IO.File]::WriteAllText($rootToml, $rootContent, (New-Object System.Text.UTF8Encoding($false)))
-        Write-Host "  registered crates/ghost-dex in workspace members"
+        Write-Host "  registered crates/opacus-dex in workspace members"
     } else {
         Write-Host "  WARNING: no [workspace] members array in root Cargo.toml" -ForegroundColor Yellow
     }
 } else {
-    Write-Host "  ghost-dex already in workspace members"
+    Write-Host "  opacus-dex already in workspace members"
 }
 
 # ---- 4) tests ----
 Write-Host ""
 Push-Location $ProjectRoot
 try {
-    Write-Host "=== running: cargo test -p ghost-bridge --release ===" -ForegroundColor Cyan
-    cargo test -p ghost-bridge --release
+    Write-Host "=== running: cargo test -p opacus-bridge --release ===" -ForegroundColor Cyan
+    cargo test -p opacus-bridge --release
     if ($LASTEXITCODE -ne 0) {
         Write-Host "BRIDGE TESTS FAILED - paste the output above back to the assistant" -ForegroundColor Red
         exit 1
@@ -2284,8 +2284,8 @@ try {
     Write-Host "BRIDGE TESTS PASSED (DLEq + swap protocol + monero-rpc)" -ForegroundColor Green
 
     Write-Host ""
-    Write-Host "=== running: cargo test -p ghost-dex --release ===" -ForegroundColor Cyan
-    cargo test -p ghost-dex --release
+    Write-Host "=== running: cargo test -p opacus-dex --release ===" -ForegroundColor Cyan
+    cargo test -p opacus-dex --release
     if ($LASTEXITCODE -ne 0) {
         Write-Host "DEX TESTS FAILED - paste the output above back to the assistant" -ForegroundColor Red
         exit 1
@@ -2297,8 +2297,8 @@ try {
 
 Write-Host ""
 Write-Host "What you got:" -ForegroundColor Cyan
-Write-Host "  ghost-bridge: xmr_dleq (same-secret proof XMR<->GHOST), xmr_swap (timelocked protocol), xmr_rpc (monero-wallet-rpc)"
-Write-Host "  ghost-dex: EIP-155 tx signer, Uniswap V2 Router calldata, wGHOST burn/mint helpers, eth json-rpc client"
+Write-Host "  opacus-bridge: xmr_dleq (same-secret proof XMR<->GHOST), xmr_swap (timelocked protocol), xmr_rpc (monero-wallet-rpc)"
+Write-Host "  opacus-dex: EIP-155 tx signer, Uniswap V2 Router calldata, wGHOST burn/mint helpers, eth json-rpc client"
 Write-Host "  contracts/wGHOST.sol: deploy with forge (audit before mainnet!)"
 Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "  - deploy wGHOST to a testnet (Sepolia) via foundry, then set_wghost(addr)"

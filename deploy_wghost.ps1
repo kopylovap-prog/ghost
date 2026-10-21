@@ -411,7 +411,7 @@ if ($skipDeploy -or (Test-Path -LiteralPath $AddrFile)) {
     Write-Output "  persist the address:"
     Write-Output ("    setx WGHOST_ADDRESS {0}" -f (Get-Content -LiteralPath $AddrFile -TotalCount 1).Trim())
     Write-Output "  then run: powershell -ExecutionPolicy Bypass -File .\wire_wghost_env.ps1"
-    Write-Output "  (ghost-dex wghost() will pick WGHOST_ADDRESS up automatically)"
+    Write-Output "  (opacus-dex wghost() will pick WGHOST_ADDRESS up automatically)"
 } else {
     Write-Output "  to deploy wGHOST on Sepolia:"
     Write-Output "    1. fund a throwaway address (0.05 ETH is plenty):"
@@ -419,6 +419,6 @@ if ($skipDeploy -or (Test-Path -LiteralPath $AddrFile)) {
     Write-Output '    2. $env:SEPOLIA_RPC_URL = "https://<provider>/v3/<key>"'
     Write-Output '       $env:DEPLOYER_PRIVATE_KEY = "0x..."   # throwaway TESTNET key only'
     Write-Output "    3. re-run: powershell -ExecutionPolicy Bypass -File .\deploy_wghost.ps1"
-    Write-Output "  then run wire_wghost_env.ps1 (env wiring for ghost-dex)"
+    Write-Output "  then run wire_wghost_env.ps1 (env wiring for opacus-dex)"
 }
 Write-Output "  mainnet: multi-signer quorum + external audit FIRST (AUDIT REQUIRED)"

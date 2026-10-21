@@ -1,10 +1,10 @@
 # =====================================================================
 # fix_bridge_toml.ps1
-# Ghost project - repair crates\ghost-bridge\Cargo.toml after
+# Ghost project - repair crates\opacus-bridge\Cargo.toml after
 # add_bridge_dex.ps1:
 #
 #   error: cannot extend value of type inline table with a dotted key
-#     --> crates\ghost-bridge\Cargo.toml:14:1
+#     --> crates\opacus-bridge\Cargo.toml:14:1
 #      |
 #   14 | serde.workspace = true
 #      | ^^^^^
@@ -29,19 +29,19 @@
 #   R5 ensures all 5 bridge deps exist: curve25519-dalek, blake3, hex,
 #      serde, serde_json (adds any missing one)
 # Then re-runs both test suites:
-#   cargo test -p ghost-bridge --release
-#   cargo test -p ghost-dex --release
-# Backup: crates\ghost-bridge\Cargo.toml.bak-toml
+#   cargo test -p opacus-bridge --release
+#   cargo test -p opacus-dex --release
+# Backup: crates\opacus-bridge\Cargo.toml.bak-toml
 # =====================================================================
 
 $ErrorActionPreference = "Stop"
 
 # ---- adjust if your project lives elsewhere ----
 $ProjectRoot = "C:\Users\Mi\projects\ghost"
-$tomlPath = Join-Path $ProjectRoot "crates\ghost-bridge\Cargo.toml"
+$tomlPath = Join-Path $ProjectRoot "crates\opacus-bridge\Cargo.toml"
 $rootToml = Join-Path $ProjectRoot "Cargo.toml"
 
-Write-Host "=== Ghost: fix ghost-bridge Cargo.toml (dotted-key conflict) ===" -ForegroundColor Cyan
+Write-Host "=== Ghost: fix opacus-bridge Cargo.toml (dotted-key conflict) ===" -ForegroundColor Cyan
 
 if (!(Test-Path $tomlPath)) {
     Write-Host "ERROR: $tomlPath not found." -ForegroundColor Red
@@ -54,7 +54,7 @@ if (!(Get-Command cargo -ErrorAction SilentlyContinue)) {
 
 # ---- backup ----
 Copy-Item $tomlPath "$tomlPath.bak-toml" -Force
-Write-Host "  backup -> crates\ghost-bridge\Cargo.toml.bak-toml"
+Write-Host "  backup -> crates\opacus-bridge\Cargo.toml.bak-toml"
 
 $lines = [System.IO.File]::ReadAllLines($tomlPath)
 
@@ -77,7 +77,7 @@ if (Test-Path $rootToml) {
 Write-Host ""
 Write-Host ("  root workspace keys: " + (($wsKeys | Sort-Object) -join ", "))
 
-# ---- specs verified in sandbox (bridge-dex-1: ghost-bridge 15 passed) ----
+# ---- specs verified in sandbox (bridge-dex-1: opacus-bridge 15 passed) ----
 $KnownSpec = @{
     "serde"            = 'serde = { version = "1", features = ["derive"] }'
     "serde_json"       = 'serde_json = "1"'
@@ -258,8 +258,8 @@ foreach ($ln in [System.IO.File]::ReadAllLines($tomlPath)) { $i++; Write-Host ("
 Write-Host ""
 Push-Location $ProjectRoot
 try {
-    Write-Host "=== running: cargo test -p ghost-bridge --release ===" -ForegroundColor Cyan
-    cargo test -p ghost-bridge --release
+    Write-Host "=== running: cargo test -p opacus-bridge --release ===" -ForegroundColor Cyan
+    cargo test -p opacus-bridge --release
     if ($LASTEXITCODE -ne 0) {
         Write-Host "BRIDGE TESTS FAILED - paste the output above back to the assistant" -ForegroundColor Red
         exit 1
@@ -267,8 +267,8 @@ try {
     Write-Host "BRIDGE TESTS PASSED (DLEq + swap protocol + monero-rpc)" -ForegroundColor Green
 
     Write-Host ""
-    Write-Host "=== running: cargo test -p ghost-dex --release ===" -ForegroundColor Cyan
-    cargo test -p ghost-dex --release
+    Write-Host "=== running: cargo test -p opacus-dex --release ===" -ForegroundColor Cyan
+    cargo test -p opacus-dex --release
     if ($LASTEXITCODE -ne 0) {
         Write-Host "DEX TESTS FAILED - paste the output above back to the assistant" -ForegroundColor Red
         exit 1

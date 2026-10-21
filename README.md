@@ -42,19 +42,19 @@ tooling chain.
 
 | Path | Contents |
 |------|----------|
-| `crates/ghost-zk` | Halo2 FCMP++ zero-knowledge layer: Poseidon, sparse frontier, FcmpCircuit, v4 spend circuit, real IPA prover, prover bench |
-| `crates/ghost-wallet` | Shielded wallet: zk spend build/prove/self-verify, zk-native light wallet, tx v4 serialization |
-| `crates/ghost-consensus` | Consensus v4: validation order [S4 9], activation-height gate, nullifier seen-set, fee floor |
-| `crates/ghost-node` | Daemon: transaction submission gated by consensus `accept_transaction` |
-| `crates/ghost-bridge` | Monero bridge: cross-group DLEq, atomic-swap state machine, Monero RPC, swap P2P protocol |
-| `crates/ghost-dex` | Ethereum side: RLP, ABI, EIP-155 signer, Uniswap Router02 calldata, JSON-RPC client, wGHOST helpers |
-| `crates/ghost-network` | TCP swap node with automatic protocol replies |
+| `crates/opacus-zk` | Halo2 FCMP++ zero-knowledge layer: Poseidon, sparse frontier, FcmpCircuit, v4 spend circuit, real IPA prover, prover bench |
+| `crates/opacus-wallet` | Shielded wallet: zk spend build/prove/self-verify, zk-native light wallet, tx v4 serialization |
+| `crates/opacus-consensus` | Consensus v4: validation order [S4 9], activation-height gate, nullifier seen-set, fee floor |
+| `crates/opacus-node` | Daemon: transaction submission gated by consensus `accept_transaction` |
+| `crates/opacus-bridge` | Monero bridge: cross-group DLEq, atomic-swap state machine, Monero RPC, swap P2P protocol |
+| `crates/opacus-dex` | Ethereum side: RLP, ABI, EIP-155 signer, Uniswap Router02 calldata, JSON-RPC client, wGHOST helpers |
+| `crates/opacus-network` | TCP swap node with automatic protocol replies |
 | `contracts/` | wGHOST.sol (quorum-mint ERC-20 wrapper) + Foundry deployment script and tests |
 | repo root | Zero-typing PowerShell tooling: Sepolia deploy chain, key rotation, GitHub publish, release |
 
 ## Components
 
-### ghost-zk (Halo2 FCMP++ zero-knowledge layer)
+### opacus-zk (Halo2 FCMP++ zero-knowledge layer)
 
 - Poseidon permutation over the Pasta (Vesta) scalar field (t=3, x^5 S-box,
   64 uniform full rounds, circ(2,1,1) MDS matrix, blake3-derived round
@@ -76,7 +76,7 @@ tooling chain.
 - `benches/prover.rs`: deterministic full-pipeline benchmark of the v4
   spend (prove_v4 / verify_v4) at 2^32 leaves, zero new dependencies.
 
-### ghost-wallet (shielded wallet layer)
+### opacus-wallet (shielded wallet layer)
 
 - `zk_spend.rs`: canonical Fp <-> 32-byte serialization, persistable
   WalletNote, in-memory TreeState with a `mainnet()` constructor, witness
@@ -92,7 +92,7 @@ tooling chain.
   mirroring the consensus confirmation order; the wallet end-to-end cycle
   is green at mainnet tree depth 2^32.
 
-### ghost-consensus (v4 consensus layer)
+### opacus-consensus (v4 consensus layer)
 
 - `accept_transaction` validates a v4 spend in the normative order [S4 9]:
   parse, proof verify, balance and binding signature, nullifier seen-set,
@@ -106,14 +106,14 @@ tooling chain.
   seen-set), Accept/Reject taxonomy, and the `confirm_v4_consensus` state
   transition.
 
-### ghost-node (daemon)
+### opacus-node (daemon)
 
 - `submit_transaction` routes every incoming transaction through consensus
   `accept_transaction`; invalid transactions are rejected before any state
   effect (rejections surface as `TxRejected`), and the daemon exposes its
   `ConsensusParams` / `ConsensusState` for introspection.
 
-### ghost-bridge (Monero bridge)
+### opacus-bridge (Monero bridge)
 
 - `xmr_dleq.rs`: cross-group Schnorr DLEq proving that one scalar controls
   both the Monero/Edwards key and the Ristretto key (blake3 challenge, wide
@@ -129,7 +129,7 @@ tooling chain.
   reuses the swap state machine as the single source of truth (replay,
   duplicate, forged-claim and timeout validation).
 
-### ghost-dex (Ethereum side)
+### opacus-dex (Ethereum side)
 
 - Minimal RLP encoder/decoder verified against known vectors.
 - ABI encoding with keccak selectors (Uniswap V2 well-known selectors
@@ -144,9 +144,9 @@ tooling chain.
   sendRawTransaction) with fake-transport tests.
 - wGHOST helpers: set_wghost/burn calldata and Mint/Burn event topics.
 
-### ghost-network (swap node)
+### opacus-network (swap node)
 
-- TCP swap node reusing ghost-bridge::swap_p2p: framed socket I/O with
+- TCP swap node reusing opacus-bridge::swap_p2p: framed socket I/O with
   declared-length caps, SwapNodeConfig, listener plus bootstrap dialing, a
   full-duplex connection loop with automatic protocol replies
   (Offer -> Accept, GhostLocked -> Claim) on the same socket,
@@ -176,10 +176,10 @@ cargo build --release
 cargo test --workspace
 
 # real (non-mock) IPA prover tests:
-cargo test -p ghost-zk --features real-prover
+cargo test -p opacus-zk --features real-prover
 
 # prover benchmark - full v4 spend at 2^32 leaves (real IPA):
-cargo bench -p ghost-zk --features real-prover --bench prover
+cargo bench -p opacus-zk --features real-prover --bench prover
 
 # contracts (Foundry):
 forge build --root contracts
@@ -190,13 +190,13 @@ Test status (zero warnings in all crates):
 
 | Crate | Tests |
 |-------|-------|
-| ghost-zk | 44 default + 2 real-prover (+1 ignored mainnet-depth mock, k = 12) |
-| ghost-wallet | 14 fast + 2 mainnet-depth end-to-end (ignored by default; run with `cargo test -p ghost-wallet -- --ignored`) |
-| ghost-consensus | 10 (real IPA proofs, depth 8) |
-| ghost-node | 7 |
-| ghost-bridge | 27 |
-| ghost-dex | 14 |
-| ghost-network | 10 |
+| opacus-zk | 44 default + 2 real-prover (+1 ignored mainnet-depth mock, k = 12) |
+| opacus-wallet | 14 fast + 2 mainnet-depth end-to-end (ignored by default; run with `cargo test -p opacus-wallet -- --ignored`) |
+| opacus-consensus | 10 (real IPA proofs, depth 8) |
+| opacus-node | 7 |
+| opacus-bridge | 27 |
+| opacus-dex | 14 |
+| opacus-network | 10 |
 
 Performance: a membership-only spend proof at mainnet tree depth (2^32
 leaves) proves and verifies in about 2.1 s. The full v4 spend pipeline
@@ -240,7 +240,7 @@ GitHub publish with secret gates and no force-push) and `release_ghost.ps1`
 - Hashlock-in-circuit and CLSAG adaptor signatures for on-chain swap
   enforcement (Refund frames are notices in v0.1).
 - Peer discovery/gossip and DLEq-bound peer authentication for
-  ghost-network.
+  opacus-network.
 - Encrypted note transmission between wallets.
 - External audit before any mainnet use.
 

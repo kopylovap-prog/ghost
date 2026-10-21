@@ -1,3 +1,14 @@
+## [Unreleased]
+
+### Changed
+- Rebrand: the workspace moved to the opacusio GitHub org and every crate
+  was renamed `ghost-*` -> `opacus-*` (packages, libraries, the`r
+  `cli/ghost` -> `cli/opacus` binary `ghost` -> `opacus`, workspace
+  members, cross-crate dependencies, imports, benches, CI and docs).
+  Deliberately unchanged: wire-protocol strings (`ghost-swap-p2p-v1`,`r
+  `ghost-swap-offer-id-v1`), circuit domain labels (`GHOST/v4/*`), the
+  Poseidon label (`ghost-zk-poseidon-v1`) and the wGHOST token.
+
 ## [0.4.0] - 2026-10-20
 
 Value conservation release: the full FCMP++-style v4 spend pipeline now

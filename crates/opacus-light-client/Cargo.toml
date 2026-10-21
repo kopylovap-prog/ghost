@@ -1,0 +1,8 @@
+[package]
+name = "opacus-light-client"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+borsh.workspace = true
+blake3.workspace = true
+thiserror.workspace = true

@@ -1,16 +1,16 @@
 [workspace]
 members = [
-    "crates/ghost-dex",
-    "crates/ghost-crypto",
-    "crates/ghost-consensus",
-    "crates/ghost-light-client",
-    "crates/ghost-wallet",
-    "crates/ghost-network",
-    "crates/ghost-node",
-    "crates/ghost-bridge",
-    "crates/ghost-miner",
-    "crates/ghost-zk",
-    "cli/ghost",
+    "crates/opacus-dex",
+    "crates/opacus-crypto",
+    "crates/opacus-consensus",
+    "crates/opacus-light-client",
+    "crates/opacus-wallet",
+    "crates/opacus-network",
+    "crates/opacus-node",
+    "crates/opacus-bridge",
+    "crates/opacus-miner",
+    "crates/opacus-zk",
+    "cli/opacus",
 ]
 resolver = "2"
 

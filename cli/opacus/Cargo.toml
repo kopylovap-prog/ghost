@@ -1,0 +1,20 @@
+[package]
+name = "opacus-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "opacus"
+path = "src/main.rs"
+
+[dependencies]
+opacus-crypto = { path = "../../crates/opacus-crypto" }
+opacus-wallet = { path = "../../crates/opacus-wallet" }
+opacus-node = { path = "../../crates/opacus-node" }
+opacus-miner = { path = "../../crates/opacus-miner" }
+tokio.workspace = true
+clap.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+dirs.workspace = true
+rand.workspace = true

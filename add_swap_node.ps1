@@ -1,28 +1,28 @@
-﻿# add_swap_node.ps1
-# Ghost project - swap sessions on real TCP sockets (ghost-network).
-# Adds crates\ghost-network\src\swap_node.rs: a SwapNode that runs the
-# ghost-bridge "ghost-swap-p2p-v1" protocol (Offer/Accept/XmrLocked/
+# add_swap_node.ps1
+# Ghost project - swap sessions on real TCP sockets (opacus-network).
+# Adds crates\opacus-network\src\swap_node.rs: a SwapNode that runs the
+# opacus-bridge "ghost-swap-p2p-v1" protocol (Offer/Accept/XmrLocked/
 # GhostLocked/Claim/Refund) over full-duplex TCP connections.
-# Self-contained: also installs ghost-bridge/src/swap_p2p.rs if it is not
+# Self-contained: also installs opacus-bridge/src/swap_p2p.rs if it is not
 # present yet (no need to run add_swap_p2p.ps1 first).
 # Additive only; manifest patch checks the base key in ANY form
 # (name.workspace or name = ...) before inserting - no TOML conflicts.
 # Generated 2026-10-18 - sandbox verified:
-# ghost-network 8 passed / 0 failed (incl. two-node swap e2e over TCP),
-# ghost-bridge 27 passed / 0 failed, zero warnings.
+# opacus-network 8 passed / 0 failed (incl. two-node swap e2e over TCP),
+# opacus-bridge 27 passed / 0 failed, zero warnings.
 
 $ErrorActionPreference = "Stop"
 
 # ---- adjust if your project lives elsewhere ----
 $ProjectRoot = "C:\Users\Mi\projects\ghost"
 
-Write-Host "=== Ghost: swap P2P node in ghost-network ===" -ForegroundColor Cyan
+Write-Host "=== Ghost: swap P2P node in opacus-network ===" -ForegroundColor Cyan
 
 if (!(Get-Command cargo -ErrorAction SilentlyContinue)) {
     Write-Host "ERROR: cargo not found in PATH." -ForegroundColor Red
     exit 1
 }
-foreach ($d in @("crates\ghost-bridge", "crates\ghost-network")) {
+foreach ($d in @("crates\opacus-bridge", "crates\opacus-network")) {
     if (!(Test-Path (Join-Path $ProjectRoot $d))) {
         Write-Host ("ERROR: not found: " + $d) -ForegroundColor Red
         exit 1
@@ -37,7 +37,7 @@ function Write-Text([string]$Path, [string]$Content) {
 }
 
 # ---- 0) backups ----
-foreach ($f in @("crates\ghost-bridge\src\lib.rs", "crates\ghost-network\src\lib.rs", "crates\ghost-network\Cargo.toml")) {
+foreach ($f in @("crates\opacus-bridge\src\lib.rs", "crates\opacus-network\src\lib.rs", "crates\opacus-network\Cargo.toml")) {
     $p = Join-Path $ProjectRoot $f
     if (Test-Path $p) {
         Copy-Item $p "$p.bak-node" -Force
@@ -45,10 +45,10 @@ foreach ($f in @("crates\ghost-bridge\src\lib.rs", "crates\ghost-network\src\lib
     }
 }
 
-# ---- 1) ghost-bridge/src/swap_p2p.rs (skipped when already installed) ----
-$p2pPath = Join-Path $ProjectRoot "crates\ghost-bridge\src\swap_p2p.rs"
+# ---- 1) opacus-bridge/src/swap_p2p.rs (skipped when already installed) ----
+$p2pPath = Join-Path $ProjectRoot "crates\opacus-bridge\src\swap_p2p.rs"
 if ((Test-Path $p2pPath) -and (Select-String -Path $p2pPath -Pattern 'ghost-swap-p2p-v1' -Quiet)) {
-    Write-Host "  ghost-bridge\src\swap_p2p.rs already present - skipped"
+    Write-Host "  opacus-bridge\src\swap_p2p.rs already present - skipped"
 } else {
     if (Test-Path $p2pPath) { Copy-Item $p2pPath "$p2pPath.bak-node" -Force }
     Write-Text $p2pPath @'
@@ -918,11 +918,11 @@ mod tests {
 '@
 }
 
-# ---- 2) ghost-network/src/swap_node.rs ----
-Write-Text (Join-Path $ProjectRoot "crates\ghost-network\src\swap_node.rs") @'
-//! TCP node for the ghost-bridge swap P2P protocol (v0.1).
+# ---- 2) opacus-network/src/swap_node.rs ----
+Write-Text (Join-Path $ProjectRoot "crates\opacus-network\src\swap_node.rs") @'
+//! TCP node for the opacus-bridge swap P2P protocol (v0.1).
 //!
-//! Bridges [`SwapNet`] (ghost-bridge) onto real TCP sockets. Every
+//! Bridges [`SwapNet`] (opacus-bridge) onto real TCP sockets. Every
 //! connection is full-duplex: frames read from a peer are applied to the
 //! session registry and the auto-replies (Accept, Claim) are written back
 //! on the same socket. The wire format is exactly the bridge's u32-LE
@@ -962,8 +962,8 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use ghost_bridge::swap_p2p::{decode_frame, SwapNet, SwapNetError, SwapNetMessage};
-use ghost_bridge::xmr_swap::Offer;
+use opacus_bridge::swap_p2p::{decode_frame, SwapNet, SwapNetError, SwapNetMessage};
+use opacus_bridge::xmr_swap::Offer;
 
 use crate::p2p::NetworkConfig;
 
@@ -974,7 +974,7 @@ use crate::p2p::NetworkConfig;
 #[derive(Debug)]
 pub enum NetError {
     Io(std::io::Error),
-    Frame(ghost_bridge::swap_p2p::FrameError),
+    Frame(opacus_bridge::swap_p2p::FrameError),
     Protocol(SwapNetError),
     /// Peer declared a frame larger than the configured limit.
     TooLarge(usize),
@@ -1005,15 +1005,15 @@ impl From<SwapNetError> for NetError {
     }
 }
 
-impl From<ghost_bridge::swap_p2p::FrameError> for NetError {
-    fn from(e: ghost_bridge::swap_p2p::FrameError) -> Self {
+impl From<opacus_bridge::swap_p2p::FrameError> for NetError {
+    fn from(e: opacus_bridge::swap_p2p::FrameError) -> Self {
         NetError::Frame(e)
     }
 }
 
 // ---------------------------------------------------------------------------
 // Frame IO over sockets (u32-LE prefix + JSON body, as produced by
-// ghost_bridge::swap_p2p::encode_frame)
+// opacus_bridge::swap_p2p::encode_frame)
 // ---------------------------------------------------------------------------
 
 fn read_full(stream: &mut TcpStream, buf: &mut [u8]) -> Result<usize, NetError> {
@@ -1327,8 +1327,8 @@ impl SwapNode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ghost_bridge::swap_p2p::{encode_frame, offer_id_of, Frame, SwapOfferPayload};
-    use ghost_bridge::xmr_swap::{hashlock_of, Phase, Role};
+    use opacus_bridge::swap_p2p::{encode_frame, offer_id_of, Frame, SwapOfferPayload};
+    use opacus_bridge::xmr_swap::{hashlock_of, Phase, Role};
     use std::time::Instant;
 
     const PREIMAGE: [u8; 32] = [7u8; 32];
@@ -1623,8 +1623,8 @@ mod tests {
 
 # ---- 3) module registrations (idempotent) ----
 $reg = @(
-    @{ Path = (Join-Path $ProjectRoot "crates\ghost-bridge\src\lib.rs");  Mod = "swap_p2p"  },
-    @{ Path = (Join-Path $ProjectRoot "crates\ghost-network\src\lib.rs"); Mod = "swap_node" }
+    @{ Path = (Join-Path $ProjectRoot "crates\opacus-bridge\src\lib.rs");  Mod = "swap_p2p"  },
+    @{ Path = (Join-Path $ProjectRoot "crates\opacus-network\src\lib.rs"); Mod = "swap_node" }
 )
 foreach ($r in $reg) {
     $lib = [System.IO.File]::ReadAllText($r.Path)
@@ -1639,11 +1639,11 @@ foreach ($r in $reg) {
     }
 }
 
-# ---- 4) crates\ghost-network\Cargo.toml: path dep on ghost-bridge ----
+# ---- 4) crates\opacus-network\Cargo.toml: path dep on opacus-bridge ----
 # Base-key presence check in ANY form (dotted inheritance OR plain value)
 # before inserting a VALUE-style line: a value definition after a dotted
 # key of a DIFFERENT name can never conflict (the v0.1 manifest lesson).
-$tomlPath = Join-Path $ProjectRoot "crates\ghost-network\Cargo.toml"
+$tomlPath = Join-Path $ProjectRoot "crates\opacus-network\Cargo.toml"
 $toml = [System.IO.File]::ReadAllText($tomlPath)
 $lines = @($toml -split "`r?`n")
 
@@ -1671,17 +1671,17 @@ function Ensure-Dep([object[]]$Lines, [string]$Name, [string]$ValueLine) {
 }
 
 $lines = @(Ensure-Dep $lines 'serde' 'serde = { version = "1", features = ["derive"] }')
-$lines = @(Ensure-Dep $lines 'ghost-bridge' 'ghost-bridge = { path = "../ghost-bridge" }')
+$lines = @(Ensure-Dep $lines 'opacus-bridge' 'opacus-bridge = { path = "../opacus-bridge" }')
 $joined = ($lines -join "`r`n") + "`r`n"
 [System.IO.File]::WriteAllText($tomlPath, $joined, (New-Object System.Text.UTF8Encoding($false)))
-Write-Host "  manifest patched: crates\ghost-network\Cargo.toml"
+Write-Host "  manifest patched: crates\opacus-network\Cargo.toml"
 
 # ---- 5) tests ----
 Write-Host ""
 Push-Location $ProjectRoot
 try {
-    Write-Host "=== running: cargo test -p ghost-bridge --release ===" -ForegroundColor Cyan
-    cargo test -p ghost-bridge --release
+    Write-Host "=== running: cargo test -p opacus-bridge --release ===" -ForegroundColor Cyan
+    cargo test -p opacus-bridge --release
     if ($LASTEXITCODE -ne 0) {
         Write-Host "BRIDGE TESTS FAILED - paste the output above back to the assistant" -ForegroundColor Red
         exit 1
@@ -1689,8 +1689,8 @@ try {
     Write-Host "BRIDGE TESTS PASSED (DLEq + swap protocol + swap P2P + monero-rpc)" -ForegroundColor Green
 
     Write-Host ""
-    Write-Host "=== running: cargo test -p ghost-network --release ===" -ForegroundColor Cyan
-    cargo test -p ghost-network --release
+    Write-Host "=== running: cargo test -p opacus-network --release ===" -ForegroundColor Cyan
+    cargo test -p opacus-network --release
     if ($LASTEXITCODE -ne 0) {
         Write-Host "NETWORK SWAP TESTS FAILED - paste the output above back to the assistant" -ForegroundColor Red
         exit 1
@@ -1702,7 +1702,7 @@ try {
 
 Write-Host ""
 Write-Host "What you got:" -ForegroundColor Cyan
-Write-Host "  ghost-network/swap_node.rs: SwapNode - real TCP transport for swap sessions"
+Write-Host "  opacus-network/swap_node.rs: SwapNode - real TCP transport for swap sessions"
 Write-Host "    SwapNode::start(cfg) / connect / broadcast_offer / send_wire / process_wire"
 Write-Host "    full-duplex conn loop: inbound frames -> SwapNet::receive_frame -> auto-replies"
 Write-Host "    (Accept, Claim) written back on the same socket; frame size cap; idle timeout;"

@@ -2,18 +2,18 @@
 # wire_wghost_env.ps1  (ghost project - kopylovap-prog/ghost)
 #
 # PURPOSE
-#   ghost-dex::wghost() currently returns the zero address until
+#   opacus-dex::wghost() currently returns the zero address until
 #   set_wghost(addr) is called manually from user code. This script adds an
 #   environment fallback so the deployed wGHOST address is picked up from
 #   the WGHOST_ADDRESS environment variable (0x-prefixed 20-byte hex):
 #     1. address already set via set_wghost()          -> wins
 #     2. WGHOST_ADDRESS env var                        -> parsed + cached
 #     3. zero address placeholder                      -> fallback
-#   Adds pub fn parse_address() + unit tests, re-runs the ghost-dex suite.
-#   Algorithm verified in sandbox: ghost-dex 14 passed / 0 failed.
+#   Adds pub fn parse_address() + unit tests, re-runs the opacus-dex suite.
+#   Algorithm verified in sandbox: opacus-dex 14 passed / 0 failed.
 #
 #   - idempotent (marker: WGHOST_ADDRESS inside wghost.rs)
-#   - backup: crates\ghost-dex\src\wghost.rs.bak-wg (kept, never overwritten)
+#   - backup: crates\opacus-dex\src\wghost.rs.bak-wg (kept, never overwritten)
 #   - pure ASCII, no here-strings, run with -File
 # =============================================================================
 
@@ -21,7 +21,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $ProjectRoot = "C:\Users\Mi\projects\ghost"
-$Wg = Join-Path $ProjectRoot "crates\ghost-dex\src\wghost.rs"
+$Wg = Join-Path $ProjectRoot "crates\opacus-dex\src\wghost.rs"
 
 if (-not (Test-Path -LiteralPath $Wg)) {
     Write-Output "[!] NOT FOUND: $Wg"
@@ -126,12 +126,12 @@ $newTest = (@(
 
 if (-not $text.Contains($oldFn)) {
     Write-Output "[!] wghost() block not found verbatim - wghost.rs was modified"
-    Write-Output "    paste crates\ghost-dex\src\wghost.rs back to the assistant"
+    Write-Output "    paste crates\opacus-dex\src\wghost.rs back to the assistant"
     exit 1
 }
 if (-not $text.Contains($oldTest)) {
     Write-Output "[!] test anchor not found verbatim - wghost.rs was modified"
-    Write-Output "    paste crates\ghost-dex\src\wghost.rs back to the assistant"
+    Write-Output "    paste crates\opacus-dex\src\wghost.rs back to the assistant"
     exit 1
 }
 
@@ -143,10 +143,10 @@ Write-Output ("[+] written: {0} ({1} line endings preserved)" -f $Wg, $(if ($nl 
 
 }
 
-# --- regression: ghost-dex suite -------------------------------------------------
+# --- regression: opacus-dex suite -------------------------------------------------
 Set-Location $ProjectRoot
-Write-Output "cargo test -p ghost-dex --release"
-$dexOut = cmd /c "cargo test -p ghost-dex --release 2>&1"
+Write-Output "cargo test -p opacus-dex --release"
+$dexOut = cmd /c "cargo test -p opacus-dex --release 2>&1"
 $dexOut | ForEach-Object { Write-Output $_ }
 if ($LASTEXITCODE -ne 0) {
     Write-Output "GHOST-DEX TESTS FAILED - paste the output above back to the assistant"
@@ -157,7 +157,7 @@ Write-Output ""
 Write-Output "WGHOST ENV WIRING COMPLETE - wghost() reads WGHOST_ADDRESS"
 Write-Output ""
 Write-Output "What you got:"
-Write-Output "  ghost-dex wghost.rs: wghost() resolution order -"
+Write-Output "  opacus-dex wghost.rs: wghost() resolution order -"
 Write-Output "    set_wghost() > WGHOST_ADDRESS env (auto-cached) > zero address"
 Write-Output "  parse_address(): 0x-prefixed or bare 20-byte hex, strict length"
 Write-Output "  new test: parse_address_shapes (suite re-run green above)"

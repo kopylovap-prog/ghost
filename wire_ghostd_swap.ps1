@@ -1,17 +1,17 @@
-﻿# wire_ghostd_swap.ps1 - wire swap sessions into ghostd (ghost-node)
+# wire_ghostd_swap.ps1 - wire swap sessions into ghostd (opacus-node)
 # Gives ghostd a live TCP swap node + wallet-driven lock/claim service.
 #
 # Run from the project root:
 #   powershell -ExecutionPolicy Bypass -File .\wire_ghostd_swap.ps1
 #
 # What it does (idempotent, backups *.bak-svc):
-#   1. ghost-network/swap_node.rs -> v0.2: LIVE chain tip (set_height)
-#   2. ghost-node/src/swap_service.rs (new): SwapService + global registry
-#   3. ghost-node Cargo.toml: ghost-network dep (safe ANY-form check)
+#   1. opacus-network/swap_node.rs -> v0.2: LIVE chain tip (set_height)
+#   2. opacus-node/src/swap_service.rs (new): SwapService + global registry
+#   3. opacus-node Cargo.toml: opacus-network dep (safe ANY-form check)
 #   4. mod registration (lib.rs or main.rs or src/bin entry)
 #   5. autostart hook as the first statement of fn main
-#   6. cargo test -p ghost-network --release
-#   7. cargo test -p ghost-node --release
+#   6. cargo test -p opacus-network --release
+#   7. cargo test -p opacus-node --release
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = "C:\Users\Mi\projects\ghost"
@@ -152,9 +152,9 @@ function Insert-Hook([string]$Path, [string]$CallLine) {
 # ---------------------------------------------------------------------------
 
 $SwapNodeRs = @'
-//! TCP node for the ghost-bridge swap P2P protocol (v0.1).
+//! TCP node for the opacus-bridge swap P2P protocol (v0.1).
 //!
-//! Bridges [`SwapNet`] (ghost-bridge) onto real TCP sockets. Every
+//! Bridges [`SwapNet`] (opacus-bridge) onto real TCP sockets. Every
 //! connection is full-duplex: frames read from a peer are applied to the
 //! session registry and the auto-replies (Accept, Claim) are written back
 //! on the same socket. The wire format is exactly the bridge's u32-LE
@@ -200,14 +200,14 @@ use std::time::Duration;
 
 use crate::p2p::NetworkConfig;
 
-// Re-exports for embedders (ghostd wiring): the swap service in ghost-node
-// consumes the protocol types through ghost-network only, so ghost-node
-// needs NO direct ghost-bridge dependency.
-pub use ghost_bridge::swap_p2p::{
+// Re-exports for embedders (ghostd wiring): the swap service in opacus-node
+// consumes the protocol types through opacus-network only, so opacus-node
+// needs NO direct opacus-bridge dependency.
+pub use opacus_bridge::swap_p2p::{
     decode_frame, encode_frame, offer_id_of, Frame, SwapNet, SwapNetError, SwapNetMessage,
     SwapOfferPayload, TrackedSession,
 };
-pub use ghost_bridge::xmr_swap::{hashlock_of, Offer, Phase, Role, SwapError, SwapSession};
+pub use opacus_bridge::xmr_swap::{hashlock_of, Offer, Phase, Role, SwapError, SwapSession};
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -216,7 +216,7 @@ pub use ghost_bridge::xmr_swap::{hashlock_of, Offer, Phase, Role, SwapError, Swa
 #[derive(Debug)]
 pub enum NetError {
     Io(std::io::Error),
-    Frame(ghost_bridge::swap_p2p::FrameError),
+    Frame(opacus_bridge::swap_p2p::FrameError),
     Protocol(SwapNetError),
     /// Peer declared a frame larger than the configured limit.
     TooLarge(usize),
@@ -247,15 +247,15 @@ impl From<SwapNetError> for NetError {
     }
 }
 
-impl From<ghost_bridge::swap_p2p::FrameError> for NetError {
-    fn from(e: ghost_bridge::swap_p2p::FrameError) -> Self {
+impl From<opacus_bridge::swap_p2p::FrameError> for NetError {
+    fn from(e: opacus_bridge::swap_p2p::FrameError) -> Self {
         NetError::Frame(e)
     }
 }
 
 // ---------------------------------------------------------------------------
 // Frame IO over sockets (u32-LE prefix + JSON body, as produced by
-// ghost_bridge::swap_p2p::encode_frame)
+// opacus_bridge::swap_p2p::encode_frame)
 // ---------------------------------------------------------------------------
 
 fn read_full(stream: &mut TcpStream, buf: &mut [u8]) -> Result<usize, NetError> {
@@ -981,15 +981,15 @@ mod tests {
 
 $SwapServiceRs = @'
 //! ghostd swap service: embeds the TCP swap node
-//! ([`ghost_network::swap_node`]) into the daemon and exposes the
+//! ([`opacus_network::swap_node`]) into the daemon and exposes the
 //! wallet-driven swap choreography.
 //!
 //! Wiring - three one-liners inside ghostd:
 //!
 //! ```text
-//! ghost_node::swap_service::autostart_from_env();  // fn main: bind + listener + dials
-//! ghost_node::swap_service::feed_height(tip);      // block/header loop: live chain tip
-//! let svc = ghost_node::swap_service::global();    // wallet/CLI: drive lock/claim
+//! opacus_node::swap_service::autostart_from_env();  // fn main: bind + listener + dials
+//! opacus_node::swap_service::feed_height(tip);      // block/header loop: live chain tip
+//! let svc = opacus_node::swap_service::global();    // wallet/CLI: drive lock/claim
 //! ```
 //!
 //! Choreography through the service (maker sells GHOST, taker sells XMR):
@@ -1013,8 +1013,8 @@ $SwapServiceRs = @'
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use ghost_network::p2p::NetworkConfig;
-use ghost_network::swap_node::{
+use opacus_network::p2p::NetworkConfig;
+use opacus_network::swap_node::{
     NetError, NodeEvent, Offer, SwapNode, SwapNodeConfig, TrackedSession,
 };
 
@@ -1220,7 +1220,7 @@ pub fn autostart_from_env() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ghost_network::swap_node::{
+    use opacus_network::swap_node::{
         encode_frame, hashlock_of, offer_id_of, Frame, Phase, SwapNetMessage, SwapNetError,
         SwapOfferPayload,
     };
@@ -1395,20 +1395,20 @@ mod tests {
 
 Write-Output "=== wire_ghostd_swap: wire swap sessions into ghostd ==="
 
-$NetDir = Join-Path $ProjectRoot "crates\ghost-network"
-$NodeDir = Join-Path $ProjectRoot "crates\ghost-node"
+$NetDir = Join-Path $ProjectRoot "crates\opacus-network"
+$NodeDir = Join-Path $ProjectRoot "crates\opacus-node"
 $NetSrc = Join-Path $NetDir "src"
 $NodeSrc = Join-Path $NodeDir "src"
-if (-not (Test-Path $NetSrc)) { Abort-Wiring "crates\ghost-network\src not found" }
-if (-not (Test-Path $NodeSrc)) { Abort-Wiring "crates\ghost-node\src not found" }
+if (-not (Test-Path $NetSrc)) { Abort-Wiring "crates\opacus-network\src not found" }
+if (-not (Test-Path $NodeSrc)) { Abort-Wiring "crates\opacus-node\src not found" }
 
 # --- STEP 1: swap_node.rs v0.2 (live height) -------------------------------
 $SwapNodePath = Join-Path $NetSrc "swap_node.rs"
-Write-Output "STEP 1: ghost-network/swap_node.rs -> v0.2 live chain tip (set_height)"
+Write-Output "STEP 1: opacus-network/swap_node.rs -> v0.2 live chain tip (set_height)"
 if (Test-Path $SwapNodePath) {
     $cur = [System.IO.File]::ReadAllText($SwapNodePath)
     if ((-not $cur.Contains("ghost-swap-p2p-v1")) -or (-not $cur.Contains("two_nodes_full_swap_over_tcp"))) {
-        Abort-Wiring "crates\ghost-network\src\swap_node.rs was modified outside the delivered scripts - refusing to overwrite"
+        Abort-Wiring "crates\opacus-network\src\swap_node.rs was modified outside the delivered scripts - refusing to overwrite"
     }
     Backup-File $SwapNodePath ".bak-svc"
     Write-Output "  backup: swap_node.rs.bak-svc"
@@ -1435,9 +1435,9 @@ if ($haveLib -or $haveMain) {
     $SvcPath = Join-Path $binDir "swap_service.rs"
 } else {
     Print-Skeleton $NodeSrc
-    Abort-Wiring "crates\ghost-node\src has neither lib.rs, main.rs nor src\bin\*.rs with fn main"
+    Abort-Wiring "crates\opacus-node\src has neither lib.rs, main.rs nor src\bin\*.rs with fn main"
 }
-Write-Output ("STEP 2: ghost-node swap service -> {0}" -f $SvcPath)
+Write-Output ("STEP 2: opacus-node swap service -> {0}" -f $SvcPath)
 if (Test-Path $SvcPath) {
     Backup-File $SvcPath ".bak-svc"
     Write-Output "  backup: swap_service.rs.bak-svc"
@@ -1445,13 +1445,13 @@ if (Test-Path $SvcPath) {
 Write-TextFull $SvcPath $SwapServiceRs
 Write-Output ("  written: {0} bytes" -f ((Get-Item $SvcPath).Length))
 
-# --- STEP 3: ghost-node manifest (ghost-network dep, safe pattern) ----------
+# --- STEP 3: opacus-node manifest (opacus-network dep, safe pattern) ----------
 $NodeManifest = Join-Path $NodeDir "Cargo.toml"
-if (-not (Test-Path $NodeManifest)) { Abort-Wiring "crates\ghost-node\Cargo.toml not found" }
-Write-Output "STEP 3: ghost-node Cargo.toml - ensure ghost-network dep"
+if (-not (Test-Path $NodeManifest)) { Abort-Wiring "crates\opacus-node\Cargo.toml not found" }
+Write-Output "STEP 3: opacus-node Cargo.toml - ensure opacus-network dep"
 Backup-File $NodeManifest ".bak-svc"
-$depSt = Ensure-Dep $NodeManifest "ghost-network" 'ghost-network = { path = "../ghost-network" }'
-Write-Output ("  ghost-network dep: {0}" -f $depSt)
+$depSt = Ensure-Dep $NodeManifest "opacus-network" 'opacus-network = { path = "../opacus-network" }'
+Write-Output ("  opacus-network dep: {0}" -f $depSt)
 
 # --- STEP 4: mod registration ------------------------------------------------
 Write-Output "STEP 4: register the swap_service module"
@@ -1472,7 +1472,7 @@ if ($haveLib) {
 # --- STEP 5: ghostd entry hook ------------------------------------------------
 Write-Output "STEP 5: autostart hook in the ghostd entry"
 $prefix = "crate::"
-if ($haveLib) { $prefix = "ghost_node::" }
+if ($haveLib) { $prefix = "opacus_node::" }
 $callLine = "    " + $prefix + "swap_service::autostart_from_env(); // ghostd swap service (wire_ghostd_swap)"
 $entry = $null
 if ($haveMain) { $entry = $mainPath } elseif ($binEntry) { $entry = $binEntry }
@@ -1492,8 +1492,8 @@ if ($entry) {
 
 # --- STEP 6: network regression ----------------------------------------------
 Set-Location $ProjectRoot
-Write-Output "STEP 6: cargo test -p ghost-network --release"
-$netOut = cmd /c "cargo test -p ghost-network --release 2>&1"
+Write-Output "STEP 6: cargo test -p opacus-network --release"
+$netOut = cmd /c "cargo test -p opacus-network --release 2>&1"
 $netOut | ForEach-Object { Write-Output $_ }
 if ($LASTEXITCODE -ne 0) {
     Write-Output "GHOST-NETWORK TESTS FAILED - paste the output above back to the assistant"
@@ -1502,8 +1502,8 @@ if ($LASTEXITCODE -ne 0) {
 Write-Output "NETWORK SWAP REGRESSION PASSED (10 tests: live height feed via set_height)"
 
 # --- STEP 7: ghostd suite -----------------------------------------------------
-Write-Output "STEP 7: cargo test -p ghost-node --release"
-$nodeOut = cmd /c "cargo test -p ghost-node --release 2>&1"
+Write-Output "STEP 7: cargo test -p opacus-node --release"
+$nodeOut = cmd /c "cargo test -p opacus-node --release 2>&1"
 $nodeOut | ForEach-Object { Write-Output $_ }
 if ($LASTEXITCODE -ne 0) {
     Write-Output "GHOST-NODE TESTS FAILED - paste the output above back to the assistant"
@@ -1514,17 +1514,17 @@ Write-Output ""
 Write-Output "GHOSTD SWAP WIRING COMPLETE - swap service live in ghostd"
 Write-Output ""
 Write-Output "What you got:"
-Write-Output "  ghost-network/swap_node.rs v0.2: SwapNode::set_height()/height() -"
+Write-Output "  opacus-network/swap_node.rs v0.2: SwapNode::set_height()/height() -"
 Write-Output "    the session machine always uses the LIVE chain tip"
-Write-Output "  ghost-node/src/swap_service.rs: SwapService (node + height feed) and"
+Write-Output "  opacus-node/src/swap_service.rs: SwapService (node + height feed) and"
 Write-Output "    global registry: init_global / global / feed_height / autostart_from_env"
 Write-Output "    wallet-driven choreography: publish_offer / xmr_lock / ghost_lock /"
 Write-Output "    refund_notice / session / session_count / events"
 Write-Output "  ghostd main: autostart_from_env() runs the swap node on every start"
 Write-Output ""
 Write-Output "How to drive it:"
-Write-Output "  feed heights in the block/header loop:  ghost_node::swap_service::feed_height(tip);"
-Write-Output "  wallet/CLI:  let svc = ghost_node::swap_service::global();"
+Write-Output "  feed heights in the block/header loop:  opacus_node::swap_service::feed_height(tip);"
+Write-Output "  wallet/CLI:  let svc = opacus_node::swap_service::global();"
 Write-Output "               let id = svc.publish_offer(&offer, &preimage)?;"
 Write-Output "               svc.xmr_lock(&id, ""xmr-tx-hash"", h)?;   // taker side"
 Write-Output "               svc.ghost_lock(&id, ""ghost-ref"", h)?;   // maker side"

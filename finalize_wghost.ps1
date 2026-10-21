@@ -1,4 +1,4 @@
-﻿# =============================================================================
+# =============================================================================
 # finalize_wghost.ps1  (ghost project - kopylovap-prog/ghost)
 #
 # Post-deploy finalizer for wGHOST on Sepolia. Zero typing: replaces the
@@ -13,7 +13,7 @@
 #             name / symbol / decimals / totalSupply (informational)
 #             quorumThreshold == 1, quorum(0) == your deployer (hard on mismatch)
 #   STEP 3  persist WGHOST_ADDRESS (setx, User level = permanent)
-#   STEP 4  run wire_wghost_env.ps1 when present (ghost-dex picks wGHOST up)
+#   STEP 4  run wire_wghost_env.ps1 when present (opacus-dex picks wGHOST up)
 #
 # Run AFTER deploy_wghost.ps1 finished with "Deployed to: 0x...":
 #   powershell -ExecutionPolicy Bypass -File .\finalize_wghost.ps1
@@ -138,15 +138,15 @@ $sOut | ForEach-Object { Write-Output ('  {0}' -f $_) }
 if ($LASTEXITCODE -ne 0) { Die 'setx failed' }
 Write-Output '  [ok] WGHOST_ADDRESS saved (new terminal windows will see it)'
 
-# ---------------- STEP 4: wire ghost-dex ----------------
+# ---------------- STEP 4: wire opacus-dex ----------------
 Write-Output ''
 if (Test-Path -LiteralPath $Wire) {
-    Write-Output 'STEP 4: wiring ghost-dex (wire_wghost_env.ps1)'
+    Write-Output 'STEP 4: wiring opacus-dex (wire_wghost_env.ps1)'
     & powershell -NoProfile -ExecutionPolicy Bypass -File $Wire
     if ($LASTEXITCODE -ne 0) {
         Write-Output '  [!] wire_wghost_env.ps1 exited nonzero - paste its output back'
     } else {
-        Write-Output '  [ok] ghost-dex wired to wGHOST'
+        Write-Output '  [ok] opacus-dex wired to wGHOST'
     }
 } else {
     Write-Output 'STEP 4: wire_wghost_env.ps1 not found in project root - skipped'
