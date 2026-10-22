@@ -1,4 +1,4 @@
-# Ghost
+# Opacus
 
 > **Website:** <https://opacus.io> &middot; **Repo:** <https://github.com/opacusio/opacus>
 
