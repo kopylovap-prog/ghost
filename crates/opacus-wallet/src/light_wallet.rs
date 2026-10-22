@@ -74,6 +74,7 @@ pub struct ZkSpendReceipt {
 }
 
 pub struct LightWallet {
+    #[allow(dead_code)] // audit v5: field kept intentionally (pending functionality); review
     keys: RecipientKeys,
     address: String,
     unspent_notes: HashMap<[u8; 32], UnspentNote>,

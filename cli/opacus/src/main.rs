@@ -105,11 +105,13 @@ async fn run_miner(
     solo: bool,
     duration_secs: u64,
 ) -> anyhow::Result<()> {
-    let mut config = MinerConfig::default();
-    config.mode = if solo {
-        MiningMode::Solo
-    } else {
-        MiningMode::Pool
+    let mut config = MinerConfig {
+        mode: if solo {
+            MiningMode::Solo
+        } else {
+            MiningMode::Pool
+        },
+        ..Default::default()
     };
     if let Some(p) = pool {
         config.pool_url = Some(p);

@@ -185,9 +185,11 @@ impl SwapNodeConfig {
     /// loopback at the configured port (18080 by default) and dial the
     /// configured bootstrap nodes.
     pub fn from_network(cfg: &NetworkConfig) -> Self {
-        let mut out = SwapNodeConfig::default();
-        out.listen_addr = format!("127.0.0.1:{}", cfg.listen_port);
-        out.bootstrap_peers = cfg.bootstrap_nodes.clone();
+        let out = SwapNodeConfig {
+            listen_addr: format!("127.0.0.1:{}", cfg.listen_port),
+            bootstrap_peers: cfg.bootstrap_nodes.clone(),
+            ..Default::default()
+        };
         out
     }
 }

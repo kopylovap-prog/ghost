@@ -879,7 +879,7 @@ mod tests {
         }
         // Row budget [S4 8]: the gate itself is tiny, but assert the budget
         // invariant anyway so a future regression is caught immediately.
-        assert!(LIMB_ROWS < K_BUDGET_ROWS);
+        const _: () = assert!(LIMB_ROWS < K_BUDGET_ROWS);
     }
 
     #[test]
@@ -908,7 +908,7 @@ mod tests {
         };
         let prover = MockProver::run(9, &circuit, vec![vec![n]]).unwrap();
         prover.verify().unwrap();
-        assert!(NULLIFIER_HASH_ROWS < K_BUDGET_ROWS);
+        const _: () = assert!(NULLIFIER_HASH_ROWS < K_BUDGET_ROWS);
 
         // A published N derived from a DIFFERENT note must fail [S4 5].
         let wrong_n = nullifier_v4(a, b, rho + Fp::ONE);

@@ -938,7 +938,7 @@ mod tests {
             let prover = MockProver::run(8, &circuit, vec![vec![], vec![x, y]]).unwrap();
             prover.verify().unwrap();
         }
-        assert!(VALUE_COMMIT_ROWS < K_BUDGET_ROWS);
+        const _: () = assert!(VALUE_COMMIT_ROWS < K_BUDGET_ROWS);
     }
 
     #[test]
@@ -999,7 +999,7 @@ mod tests {
         };
         let prover = MockProver::run(9, &circuit, vec![vec![h], vec![tx, ty]]).unwrap();
         prover.verify().unwrap();
-        assert!(LEAF_TERM_ROWS < K_BUDGET_ROWS);
+        const _: () = assert!(LEAF_TERM_ROWS < K_BUDGET_ROWS);
     }
 
     #[test]
