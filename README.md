@@ -16,6 +16,25 @@ tooling chain.
 > networks only. An independent security audit is REQUIRED before any
 > mainnet use.**
 
+## Quick Start
+
+Requirements: git and Rust (install via rustup, https://rustup.rs). Verified with stable Rust 1.99.0 on Windows.
+
+```
+git clone https://github.com/opacusio/opacus.git
+cd opacus
+cargo build --release
+cargo test --workspace
+```
+
+Typical timings on a modern machine (as of v0.5.0): clone ~20 s, release build ~2 min, full test run ~15-16 min - the consensus and wallet suites dominate it. 129 tests pass by default (0 failures); 3 slow full-depth (2^32 leaves) proof tests are ignored by default and can be run with:
+
+```
+cargo test --workspace -- --ignored
+```
+
+The workspace builds warning-free; CI enforces clippy with -D warnings. License: Apache-2.0.
+
 ## How the privacy works
 
 - **Monero-style transaction layer.** Payments follow ring-CT semantics:
