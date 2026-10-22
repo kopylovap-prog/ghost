@@ -2,16 +2,16 @@
 
 > **Website:** <https://opacus.io> &middot; **Repo:** <https://github.com/opacusio/opacus>
 
-Ghost is a privacy payment network that fuses the proven transaction model of
+Opacus is a privacy payment network that fuses the proven transaction model of
 Monero (ring-CT semantics, stealth addresses, Pedersen commitments) with
 zk-SNARK spend anonymity in the spirit of Zcash Halo2 / FCMP++: every spend
 carries a succinct proof that its key material belongs to the global set of
-all wallet keys. Around the shielded core, Ghost ships an Ethereum-side
+all wallet keys. Around the shielded core, Opacus ships an Ethereum-side
 wrapped token (wGHOST), a DEX/bridge toolchain, and an atomic-swap stack for
-Monero <-> Ghost exchange, together with a zero-typing Windows (PowerShell)
+Monero <-> Opacus exchange, together with a zero-typing Windows (PowerShell)
 tooling chain.
 
-> **Status: v0.4.0 - value conservation release: balance is now enforced
+> **Status: v0.5.0: balance is enforced
 > in-circuit end to end (circuit, tx format, wallet, consensus). Test
 > networks only. An independent security audit is REQUIRED before any
 > mainnet use.**
@@ -191,7 +191,7 @@ for the contracts.
 
 ```
 git clone https://github.com/opacusio/opacus.git
-cd ghost
+cd opacus
 
 cargo build --release
 cargo test --workspace
@@ -234,8 +234,7 @@ membership-path count) is queued for v0.5 - see `benches/prover.rs`.
 
 Also at the repo root: `fix_deployer_key.ps1` (zero-input deployer key
 rotation with cross-verification), `publish_ghost.ps1` (safe one-command
-GitHub publish with secret gates and no force-push) and `release_ghost.ps1`
-(tag + GitHub release publisher).
+GitHub publish with secret gates and no force-push).
 
 ## Security notes
 
@@ -270,7 +269,7 @@ GitHub publish with secret gates and no force-push) and `release_ghost.ps1`
 `CHANGELOG.md` follows the
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and
 [Semantic Versioning](https://semver.org/). The current release is
-**v0.4.0** (value conservation release).
+**v0.5.0** (Opacus rebrand).
 
 ## License
 
