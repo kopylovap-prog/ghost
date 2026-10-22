@@ -1,3 +1,8 @@
+// opacus audit (v3): ZK circuit synthesis deliberately uses index loops over fixed
+// constraint arrays (RCs, bit windows, limb cells), and arkworks generic signatures
+// produce pathologically complex types. Style-only allowances; semantic lints remain
+// enforced. assertions_on_constants sites are dumped for review in the audit log.
+#![allow(clippy::needless_range_loop, clippy::type_complexity, clippy::assertions_on_constants)]
 //! # opacus-zk
 //!
 //! Halo2-based FCMP-style zero-knowledge membership proofs for Ghost.

@@ -52,7 +52,7 @@ impl MinerStats {
         if recent == 0 {
             return 0.0;
         }
-        let window = self.started_at.elapsed().as_secs_f64().min(60.0).max(1.0);
+        let window = self.started_at.elapsed().as_secs_f64().clamp(1.0, 60.0);
         recent as f64 / window
     }
 

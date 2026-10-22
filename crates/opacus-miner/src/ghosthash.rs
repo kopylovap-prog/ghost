@@ -1,3 +1,6 @@
+// opacus audit (v3): GhostHash round loop is consensus-critical; the indexed form
+// mirrors the reference spec 1:1, iteration-by-reference would obscure it.
+#![allow(clippy::needless_range_loop)]
 //! GhostHash PoW core
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};

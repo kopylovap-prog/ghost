@@ -1,3 +1,6 @@
+// opacus audit (v3): JSON-RPC dispatcher keeps intentionally wide handler signature
+// types; factoring them into aliases would hide the shape from the reader.
+#![allow(clippy::type_complexity)]
 //! Ethereum JSON-RPC client (read calls + raw tx broadcast) over a pluggable
 //! transport. The default HTTP transport uses `ureq`.
 
