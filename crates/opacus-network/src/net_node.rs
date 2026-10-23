@@ -40,6 +40,7 @@ use crate::handshake::{
     ReplayCache, Role, VerifiedPeer, DISCO_MAX_PEERS, MAX_NET_FRAME, REPLAY_CACHE_CAP,
 };
 use crate::identity::NodeIdentity;
+use crate::notes::{note_id_hex_of, NoteBlob, NoteInbox, NOTES_MAX_COUNT, NOTE_INBOX_CAP};
 use crate::p2p::PeerInfo;
 use crate::peers::{PeerStore, PeerStoreError};
 
@@ -146,6 +147,13 @@ pub enum NetEvent {
     Rejected { addr: String, reason: String },
     /// A Disco batch was merged into the peer store.
     DiscoMerged { node_id: String, added: usize },
+    /// Note blobs arrived from an authenticated peer (kept = newly
+    /// stored, relayed = blob deliveries forwarded to other peers).
+    NotesObserved {
+        node_id: String,
+        kept: usize,
+        relayed: usize,
+    },
     /// The authenticated peer disconnected (clean EOF or idle timeout).
     Disconnected { node_id: String },
 }
@@ -157,6 +165,7 @@ fn kind_of(m: &NetMsg) -> &'static str {
         NetMsg::Hello { .. } => "Hello",
         NetMsg::Auth { .. } => "Auth",
         NetMsg::Disco { .. } => "Disco",
+        NetMsg::Notes { .. } => "Notes",
     }
 }
 
@@ -175,6 +184,8 @@ pub struct NetNode {
     cache: Arc<Mutex<ReplayCache>>,
     /// Authenticated connections: hex node_id -> write half.
     conns: Arc<Mutex<HashMap<String, TcpStream>>>,
+    /// Received (still sealed) note blobs, bounded and deduped by id.
+    notes: Arc<Mutex<NoteInbox>>,
     events: Arc<Mutex<Vec<NetEvent>>>,
 }
 
@@ -201,6 +212,7 @@ impl NetNode {
             store: Arc::new(Mutex::new(store)),
             cache: Arc::new(Mutex::new(ReplayCache::new(REPLAY_CACHE_CAP))),
             conns: Arc::new(Mutex::new(HashMap::new())),
+            notes: Arc::new(Mutex::new(NoteInbox::new(NOTE_INBOX_CAP))),
             events: Arc::new(Mutex::new(Vec::new())),
         });
         node.spawn_listener();
@@ -245,6 +257,66 @@ impl NetNode {
     /// Snapshot of recent events (bounded ring, newest last).
     pub fn events(&self) -> Vec<NetEvent> {
         self.events.lock().unwrap().clone()
+    }
+
+    /// Snapshot of the received (still sealed) note inbox, oldest first.
+    pub fn inbox(&self) -> Vec<NoteBlob> {
+        self.notes.lock().unwrap().snapshot()
+    }
+
+    /// Send sealed note blobs to ONE authenticated peer (by hex node_id).
+    /// The batch must respect the wire cap; the peer must be connected.
+    pub fn send_notes(&self, node_id_hex: &str, notes: &[NoteBlob]) -> Result<(), NetNodeError> {
+        if notes.len() > NOTES_MAX_COUNT {
+            return Err(NetNodeError::Handshake(HandshakeError::NotesTooLarge(
+                notes.len(),
+            )));
+        }
+        let mut stream = {
+            let conns = self.conns.lock().unwrap();
+            match conns.get(node_id_hex) {
+                Some(s) => s.try_clone()?,
+                None => {
+                    return Err(NetNodeError::Io(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("peer {node_id_hex} is not connected"),
+                    )))
+                }
+            }
+        };
+        write_net_frame(
+            &mut stream,
+            &NetMsg::Notes {
+                notes: notes.to_vec(),
+            },
+        )
+    }
+
+    /// Relay a batch of note blobs to every authenticated peer except the
+    /// sender. Delivery failures never fail the caller (they only drop
+    /// the dead connection).
+    fn relay_notes(&self, from_hex: &str, notes: &[NoteBlob]) -> usize {
+        let targets: Vec<(String, TcpStream)> = {
+            let conns = self.conns.lock().unwrap();
+            conns
+                .iter()
+                .filter(|(id, _)| id.as_str() != from_hex)
+                .filter_map(|(id, s)| s.try_clone().ok().map(|c| (id.clone(), c)))
+                .collect()
+        };
+        let mut ok = 0usize;
+        for (id, mut s) in targets {
+            match write_net_frame(
+                &mut s,
+                &NetMsg::Notes {
+                    notes: notes.to_vec(),
+                },
+            ) {
+                Ok(()) => ok += 1,
+                Err(_) => self.drop_conn(&id),
+            }
+        }
+        ok * notes.len()
     }
 
     fn log(&self, ev: NetEvent) {
@@ -437,6 +509,40 @@ impl NetNode {
                         self.log(NetEvent::DiscoMerged {
                             node_id: peer_hex.clone(),
                             added,
+                        });
+                    }
+                    Ok(NetMsg::Notes { notes }) => {
+                        let (kept, fresh) = {
+                            let mut inbox = self.notes.lock().unwrap();
+                            let mut fresh: Vec<NoteBlob> = Vec::new();
+                            for b in notes {
+                                if inbox.ingest(b.clone()) {
+                                    fresh.push(b);
+                                }
+                            }
+                            (fresh.len(), fresh)
+                        };
+                        let mut relayed = 0usize;
+                        let mut out: Vec<NoteBlob> = Vec::new();
+                        for mut b in fresh {
+                            if b.hops > 0 {
+                                b.hops -= 1;
+                                // the public id covers hops: recompute
+                                // it for the decremented budget or the
+                                // next hop rejects the blob as BadId
+                                if let Ok(new_id) = note_id_hex_of(&b) {
+                                    b.id = new_id;
+                                    out.push(b);
+                                }
+                            }
+                        }
+                        if !out.is_empty() {
+                            relayed = self.relay_notes(&peer_hex, &out);
+                        }
+                        self.log(NetEvent::NotesObserved {
+                            node_id: peer_hex.clone(),
+                            kept,
+                            relayed,
                         });
                     }
                     Ok(other) => {

@@ -42,6 +42,7 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
 use crate::identity::{node_id_of, NodeIdentity};
+use crate::notes::{validate_note_blobs, NoteBlob, NOTES_MAX_COUNT};
 
 /// Protocol tag of the opacus network wire (v0.6).
 pub const NET_PROTOCOL: &str = "opacus-net-v1";
@@ -77,6 +78,7 @@ pub enum HandshakeError {
     ProtocolMismatch(String),
     TooLarge(usize),
     DiscoTooLarge(usize),
+    NotesTooLarge(usize),
 }
 
 impl std::fmt::Display for HandshakeError {
@@ -94,6 +96,9 @@ impl std::fmt::Display for HandshakeError {
             HandshakeError::TooLarge(n) => write!(f, "frame too large: {n}"),
             HandshakeError::DiscoTooLarge(n) => {
                 write!(f, "disco carries {n} peers, cap {}", DISCO_MAX_PEERS)
+            }
+            HandshakeError::NotesTooLarge(n) => {
+                write!(f, "notes frame carries {n} blobs, cap {}", NOTES_MAX_COUNT)
             }
         }
     }
@@ -141,6 +146,10 @@ pub enum NetMsg {
     Disco {
         peers: Vec<DiscoPeer>,
     },
+    /// Post-auth note feed: a bounded batch of sealed note blobs.
+    Notes {
+        notes: Vec<NoteBlob>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -187,6 +196,9 @@ pub fn decode_net_frame(buf: &[u8]) -> Result<NetMsg, HandshakeError> {
     }
     if let NetMsg::Disco { peers } = &frame.msg {
         validate_disco(peers)?;
+    }
+    if let NetMsg::Notes { notes } = &frame.msg {
+        validate_note_blobs(notes)?;
     }
     Ok(frame.msg)
 }
