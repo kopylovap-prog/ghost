@@ -62,6 +62,11 @@ pub const DISCO_MAX_PEERS: usize = 32;
 pub const MAX_ADDR_LEN: usize = 128;
 /// Length of the hex-encoded node_id in Disco entries (16 bytes).
 pub const PEER_ID_HEX_LEN: usize = 32;
+/// The upgrade-plane name that hands a post-auth connection to the swap
+/// node (N3b). The only plane served today.
+pub const SWAP_UPGRADE_PLANE: &str = "swap";
+/// Max length of one Upgrade plane string.
+pub const MAX_UPGRADE_PLANE_LEN: usize = 16;
 
 /// Handshake/wire errors. Any verification failure MUST close the
 /// connection (and, at the node level, feed the ban policy).
@@ -150,6 +155,13 @@ pub enum NetMsg {
     Notes {
         notes: Vec<NoteBlob>,
     },
+    /// Post-auth plane upgrade (N3b): the peer asks to hand this
+    /// authenticated connection to the named plane ("swap" today).
+    /// A struct variant: a unit variant does not survive the flattened
+    /// NetFrame envelope.
+    Upgrade {
+        plane: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -200,7 +212,31 @@ pub fn decode_net_frame(buf: &[u8]) -> Result<NetMsg, HandshakeError> {
     if let NetMsg::Notes { notes } = &frame.msg {
         validate_note_blobs(notes)?;
     }
+    if let NetMsg::Upgrade { plane } = &frame.msg {
+        validate_upgrade_plane(plane)?;
+    }
     Ok(frame.msg)
+}
+
+/// Structural validation of one Upgrade payload (wire level): the plane
+/// name is short, whitespace-free and names a plane this wire serves.
+/// The only plane today is `swap`; whether the plane is AVAILABLE is a
+/// node-level decision (the optional swap attachment), not a wire one.
+pub fn validate_upgrade_plane(plane: &str) -> Result<(), HandshakeError> {
+    if plane.is_empty()
+        || plane.len() > MAX_UPGRADE_PLANE_LEN
+        || plane.chars().any(char::is_whitespace)
+    {
+        return Err(HandshakeError::Malformed(format!(
+            "upgrade plane must be 1..={MAX_UPGRADE_PLANE_LEN} chars, no whitespace"
+        )));
+    }
+    if plane != SWAP_UPGRADE_PLANE {
+        return Err(HandshakeError::Malformed(format!(
+            "unknown upgrade plane {plane:?}, want \"swap\""
+        )));
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------

@@ -7,8 +7,8 @@
 //!   dialer is the Initiator, the listener is the Responder);
 //! * a connection is STRICTLY single-shot (audit F5): exactly one Hello
 //!   and one Auth per direction in the fixed frame order; after the
-//!   handshake only Disco frames are accepted - any other frame (including
-//!   a second handshake) closes the connection;
+//!   handshake only Disco | Notes | Upgrade frames are accepted - any
+//!   other frame (including a second handshake) closes the connection;
 //! * right after the handshake both sides exchange one bounded Disco
 //!   batch. The batch leads with a SELF-entry (our advertised dialable
 //!   address), so the receiving store always gains an address worth
@@ -23,7 +23,10 @@
 //!   connection;
 //! * the declared frame length is checked BEFORE the body is allocated,
 //!   so a lying prefix cannot force a huge allocation (default cap:
-//!   `MAX_NET_FRAME`, closing the N1 backlog item on read_frame caps).
+//!   `MAX_NET_FRAME`, closing the N1 backlog item on read_frame caps);
+//! * the swap plane (N3b): a post-auth `Upgrade` frame hands the raw
+//!   connection to the attached swap node; without an attachment every
+//!   Upgrade is rejected and the connection closed.
 //!
 //! std-only, thread-per-connection, mirroring `swap_node.rs` (opacusd
 //! embeds this node through `opacus_node::net_service`).
@@ -43,6 +46,7 @@ use crate::identity::NodeIdentity;
 use crate::notes::{note_id_hex_of, NoteBlob, NoteInbox, NOTES_MAX_COUNT, NOTE_INBOX_CAP};
 use crate::p2p::PeerInfo;
 use crate::peers::{PeerStore, PeerStoreError};
+use crate::swap_node::SwapNode;
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -154,6 +158,9 @@ pub enum NetEvent {
         kept: usize,
         relayed: usize,
     },
+    /// The authenticated connection was handed over to the requested
+    /// plane (N3b); the raw stream now belongs to that plane node.
+    Upgraded { node_id: String, plane: String },
     /// The authenticated peer disconnected (clean EOF or idle timeout).
     Disconnected { node_id: String },
 }
@@ -166,6 +173,7 @@ fn kind_of(m: &NetMsg) -> &'static str {
         NetMsg::Auth { .. } => "Auth",
         NetMsg::Disco { .. } => "Disco",
         NetMsg::Notes { .. } => "Notes",
+        NetMsg::Upgrade { .. } => "Upgrade",
     }
 }
 
@@ -186,6 +194,9 @@ pub struct NetNode {
     conns: Arc<Mutex<HashMap<String, TcpStream>>>,
     /// Received (still sealed) note blobs, bounded and deduped by id.
     notes: Arc<Mutex<NoteInbox>>,
+    /// Optional swap-plane target of Upgrade handovers (N3b). `None`
+    /// until attach_swap is called; every Upgrade is rejected before.
+    swap: Arc<Mutex<Option<Arc<SwapNode>>>>,
     events: Arc<Mutex<Vec<NetEvent>>>,
 }
 
@@ -213,6 +224,7 @@ impl NetNode {
             cache: Arc::new(Mutex::new(ReplayCache::new(REPLAY_CACHE_CAP))),
             conns: Arc::new(Mutex::new(HashMap::new())),
             notes: Arc::new(Mutex::new(NoteInbox::new(NOTE_INBOX_CAP))),
+            swap: Arc::new(Mutex::new(None)),
             events: Arc::new(Mutex::new(Vec::new())),
         });
         node.spawn_listener();
@@ -262,6 +274,13 @@ impl NetNode {
     /// Snapshot of the received (still sealed) note inbox, oldest first.
     pub fn inbox(&self) -> Vec<NoteBlob> {
         self.notes.lock().unwrap().snapshot()
+    }
+
+    /// Attach the swap plane (N3b): authenticated peers may hand their
+    /// connection over to this swap node with a post-auth Upgrade frame.
+    /// The first attachment wins for the lifetime of the node.
+    pub fn attach_swap(&self, swap: Arc<SwapNode>) {
+        *self.swap.lock().unwrap() = Some(swap);
     }
 
     /// Send sealed note blobs to ONE authenticated peer (by hex node_id).
@@ -545,9 +564,41 @@ impl NetNode {
                             relayed,
                         });
                     }
+                    Ok(NetMsg::Upgrade { plane }) => {
+                        // N3b swap-plane handover: the authenticated
+                        // peer asks to move this raw connection to the
+                        // attached swap node. Without an attachment
+                        // every Upgrade is rejected and the connection
+                        // closed.
+                        let swap = self.swap.lock().unwrap().clone();
+                        match swap {
+                            Some(swap) => {
+                                // the conns write-half is a try_clone,
+                                // so dropping the bookkeeping keeps the
+                                // socket alive; adopt_stream takes the
+                                // original stream at a clean frame
+                                // boundary
+                                self.drop_conn(&peer_hex);
+                                self.log(NetEvent::Upgraded {
+                                    node_id: peer_hex.clone(),
+                                    plane,
+                                });
+                                swap.adopt_stream(stream);
+                            }
+                            None => {
+                                self.drop_conn(&peer_hex);
+                                self.log(NetEvent::Rejected {
+                                    addr: peer_addr,
+                                    reason: "upgrade plane not available".to_string(),
+                                });
+                            }
+                        }
+                        return;
+                    }
                     Ok(other) => {
                         // strict single-shot (audit F5): after the
-                        // handshake only Disco frames are accepted
+                        // handshake only Disco, Notes and the N3b
+                        // Upgrade handover are accepted
                         self.drop_conn(&peer_hex);
                         self.log(NetEvent::Rejected {
                             addr: peer_addr,
@@ -675,7 +726,12 @@ impl NetNode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::handshake::Hello;
+    use crate::handshake::{Hello, SWAP_UPGRADE_PLANE};
+    use crate::p2p::NetworkConfig;
+    use crate::swap_node::{
+        decode_frame, encode_frame, hashlock_of, offer_id_of, Frame, NodeEvent, SwapNetMessage,
+        SwapNodeConfig, SwapOfferPayload,
+    };
     use std::time::Instant;
 
     fn start_node(n: u8, peers_path: Option<PathBuf>) -> Arc<NetNode> {
@@ -880,5 +936,180 @@ mod tests {
             st.list().iter().any(|p| p.peer_id == a_id)
         });
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    // ---- N3b: swap upgrade frame ------------------------------------
+
+    fn hex_str(bytes: &[u8]) -> String {
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    /// An Offer frame built the way an EXTERNAL peer would build it
+    /// (ghost-swap-p2p-v1 wire bytes).
+    fn external_offer_wire() -> (String, Vec<u8>) {
+        let preimage = [9u8; 32];
+        let payload = SwapOfferPayload {
+            xmr_piconero: 1_000_000_000_000,
+            ghost_atoms: 500_000_000,
+            hashlock: hex_str(&hashlock_of(&preimage)),
+            fund_timeout_blocks: 100,
+            claim_timeout_blocks: 200,
+            maker_ghost_address: "ghost-maker-n3b".to_string(),
+            taker_xmr_address: "xmr-taker-n3b".to_string(),
+        };
+        let id = offer_id_of(&payload);
+        let frame = Frame::new(SwapNetMessage::Offer {
+            offer_id: hex_str(&id),
+            payload,
+        });
+        (hex_str(&id), encode_frame(&frame).unwrap())
+    }
+
+    /// Read one raw u32-LE length-prefixed frame (the swap framing is
+    /// byte-identical to the net framing).
+    fn read_swap_reply(s: &mut TcpStream) -> Option<Vec<u8>> {
+        let mut prefix = [0u8; 4];
+        s.read_exact(&mut prefix).ok()?;
+        let len = u32::from_le_bytes(prefix) as usize;
+        let mut body = vec![0u8; len];
+        s.read_exact(&mut body).ok()?;
+        let mut wire = Vec::with_capacity(4 + len);
+        wire.extend_from_slice(&prefix);
+        wire.extend_from_slice(&body);
+        Some(wire)
+    }
+
+    #[test]
+    fn upgrade_wire_roundtrip_and_bad_plane_rejected() {
+        let wire = encode_net_frame(&NetMsg::Upgrade {
+            plane: SWAP_UPGRADE_PLANE.to_string(),
+        })
+        .unwrap();
+        assert_eq!(
+            decode_net_frame(&wire).unwrap(),
+            NetMsg::Upgrade {
+                plane: "swap".to_string()
+            }
+        );
+        // empty, whitespace, unknown plane, over the length cap
+        for bad in ["", "swap x", "eth", "aaaaaaaaaaaaaaaaa"] {
+            let wire = encode_net_frame(&NetMsg::Upgrade {
+                plane: bad.to_string(),
+            })
+            .unwrap();
+            assert!(
+                decode_net_frame(&wire).is_err(),
+                "plane {bad:?} must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn upgrade_during_handshake_rejected() {
+        let b = start_node(2, None);
+        let mut s = TcpStream::connect(b.local_addr().unwrap().to_string()).unwrap();
+        // the FIRST frame on a fresh connection must be Hello
+        write_net_frame(
+            &mut s,
+            &NetMsg::Upgrade {
+                plane: SWAP_UPGRADE_PLANE.to_string(),
+            },
+        )
+        .unwrap();
+        wait_until(10, || {
+            b.events().iter().any(|e| {
+                matches!(
+                    e,
+                    NetEvent::Rejected { reason, .. }
+                        if reason.contains("expected Hello frame, got Upgrade")
+                )
+            })
+        });
+    }
+
+    #[test]
+    fn upgrade_without_swap_plane_rejected() {
+        let b = start_node(3, None);
+        let mut s = raw_dial_handshake_only(&b.local_addr().unwrap().to_string());
+        write_net_frame(
+            &mut s,
+            &NetMsg::Upgrade {
+                plane: SWAP_UPGRADE_PLANE.to_string(),
+            },
+        )
+        .unwrap();
+        wait_until(10, || {
+            b.events().iter().any(|e| {
+                matches!(
+                    e,
+                    NetEvent::Rejected { reason, .. }
+                        if reason.contains("upgrade plane not available")
+                )
+            })
+        });
+    }
+
+    /// THE N3b e2e: after the Upgrade handover the raw socket speaks the
+    /// swap protocol - an external Offer is tracked and auto-accepted on
+    /// the very same connection.
+    #[test]
+    fn upgrade_hands_connection_to_swap_plane() {
+        let b = start_node(4, None);
+        let swap = SwapNode::start(SwapNodeConfig::from_network(&NetworkConfig {
+            listen_port: 0,
+            use_tor: false,
+            max_peers: 8,
+            bootstrap_nodes: Vec::new(),
+        }))
+        .unwrap();
+        b.attach_swap(Arc::clone(&swap));
+
+        let mut s = raw_dial_handshake_only(&b.local_addr().unwrap().to_string());
+        // drain the responder Disco batch BEFORE the upgrade: once the
+        // swap conn_loop owns the socket, a stale control-plane frame
+        // would be read as swap-protocol garbage
+        let wire = read_net_frame(&mut s, MAX_NET_FRAME).unwrap().unwrap();
+        match decode_net_frame(&wire).unwrap() {
+            NetMsg::Disco { .. } => {}
+            other => panic!(
+                "expected the responder Disco batch, got {}",
+                kind_of(&other)
+            ),
+        }
+
+        write_net_frame(
+            &mut s,
+            &NetMsg::Upgrade {
+                plane: SWAP_UPGRADE_PLANE.to_string(),
+            },
+        )
+        .unwrap();
+        wait_until(10, || {
+            b.events().iter().any(|e| {
+                matches!(
+                    e,
+                    NetEvent::Upgraded { plane, .. } if plane == SWAP_UPGRADE_PLANE
+                )
+            })
+        });
+        wait_until(10, || {
+            swap.events()
+                .iter()
+                .any(|e| matches!(e, NodeEvent::PeerConnected(_)))
+        });
+
+        // the adopted socket now speaks the swap protocol end to end
+        let (id, wire) = external_offer_wire();
+        s.write_all(&wire).unwrap();
+        s.flush().unwrap();
+        wait_until(10, || swap.net().lock().unwrap().session_count() == 1);
+        assert!(
+            swap.net().lock().unwrap().session(&id).is_some(),
+            "the offered session must be tracked by the swap plane"
+        );
+        // the auto-Accept travels back over the very same socket
+        let reply = read_swap_reply(&mut s).unwrap();
+        let frame = decode_frame(&reply).unwrap();
+        assert!(matches!(frame.msg, SwapNetMessage::Accept { .. }));
     }
 }

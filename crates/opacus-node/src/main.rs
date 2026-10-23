@@ -45,6 +45,17 @@ async fn main() {
     // GHOST_NET_PORT / GHOST_NET_ADDR / GHOST_NET_PEERS / GHOST_NET_ADVERTISE
     // override the defaults.
     opacus_node::net_service::autostart(&config);
+
+    // v0.6 N3b: when both planes are up, authenticated peers can hand
+    // their connection to the swap plane with a post-auth Upgrade frame.
+    if let (Some(net), Some(swap)) = (
+        opacus_node::net_service::global(),
+        opacus_node::swap_service::global(),
+    ) {
+        net.attach_swap(swap.node());
+        println!("[opacusd] swap plane attached to the net node");
+    }
+
     let mut daemon = OpacusDaemon::new(config).expect("failed to start daemon");
     daemon.run().await.expect("daemon crashed");
 }

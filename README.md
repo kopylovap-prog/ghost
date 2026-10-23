@@ -13,10 +13,11 @@ tooling chain.
 
 > **Status: v0.6.0: the P2P networking layer is live - authenticated peer
 > identity (DLEq-bound handshake), persistent peer discovery with disco
-> gossip, and encrypted note transmission between wallets. Balance remains
-> enforced in-circuit end to end (circuit, tx format, wallet, consensus).
-> Test networks only. An independent security audit is REQUIRED before any
-> mainnet use.**
+> gossip, encrypted note transmission between wallets, and an Upgrade
+> frame that hands an authenticated connection to the swap plane. Balance
+> remains enforced in-circuit end to end (circuit, tx format, wallet,
+> consensus). Test networks only. An independent security audit is
+> REQUIRED before any mainnet use.**
 
 ## Quick Start
 
@@ -29,7 +30,7 @@ cargo build --release
 cargo test --workspace
 ```
 
-Typical timings on a modern machine (as of v0.6.0): clone ~20 s, release build ~2 min, full test run ~15-16 min - the consensus and wallet suites dominate it. 181 tests pass by default (0 failures); 3 slow full-depth (2^32 leaves) proof tests are ignored by default and can be run with:
+Typical timings on a modern machine (as of v0.6.0): clone ~20 s, release build ~2 min, full test run ~15-16 min - the consensus and wallet suites dominate it. 185 tests pass by default (0 failures); 3 slow full-depth (2^32 leaves) proof tests are ignored by default and can be run with:
 
 ```
 cargo test --workspace -- --ignored
@@ -71,7 +72,7 @@ The workspace builds warning-free; CI enforces clippy with -D warnings. License:
 | `crates/opacus-node` | Daemon: transaction submission gated by consensus `accept_transaction` |
 | `crates/opacus-bridge` | Monero bridge: cross-group DLEq, atomic-swap state machine, Monero RPC, swap P2P protocol |
 | `crates/opacus-dex` | Ethereum side: RLP, ABI, EIP-155 signer, Uniswap Router02 calldata, JSON-RPC client, wGHOST helpers |
-| `crates/opacus-network` | Networking: node identity + DLEq handshake, persistent peers + disco gossip, encrypted note feed, TCP swap node |
+| `crates/opacus-network` | Networking: node identity + DLEq handshake, persistent peers + disco gossip, encrypted note feed, TCP swap node, swap-plane handover |
 | `contracts/` | wGHOST.sol (quorum-mint ERC-20 wrapper) + Foundry deployment script and tests |
 | repo root | Zero-typing PowerShell tooling: Sepolia deploy chain, key rotation, GitHub publish, release |
 
@@ -178,16 +179,22 @@ The workspace builds warning-free; CI enforces clippy with -D warnings. License:
   oldest eviction, dedupe with monotonic last_seen, corrupt-file
   quarantine) and disco batch gossip propagated through common peers.
 - Authenticated node (N2-b): every post-handshake frame is bound to the
-  authenticated peer and limited to Disco | Notes; bounded event ring;
-  opacusd wiring (identity, disco, notes behind the daemon).
+  authenticated peer and limited to Disco | Notes | Upgrade; bounded
+  event ring; opacusd wiring (identity, disco, notes behind the daemon).
 - Encrypted note feed (N3): blake3-only ECIES to the recipient ristretto
   identity key, encrypt-then-MAC verified BEFORE any decryption, an
   OPAQUE payload owned by the wallet layer, a public blake3 id any relay
   can verify and dedupe on, and a hop budget a relay can decrement
   WITHOUT keys (the MAC does not cover hops; the relaying node recomputes
   the public id); zero-hop blobs are stored but never relayed.
+- Swap-plane handover (N3b): an authenticated peer can send an Upgrade
+  frame; the net node hands the raw connection to the attached TCP swap
+  node at a clean frame boundary (unknown or unattached planes are
+  rejected and the connection closed; the swap protocol never crosses
+  the authenticated control plane).
 - TCP swap node: automatic protocol replies (Offer -> Accept,
-  GhostLocked -> Claim) with protocol-violation disconnects.
+  GhostLocked -> Claim) with protocol-violation disconnects; adopted
+  (upgraded) connections speak the swap protocol directly.
 
 ### contracts (wGHOST token)
 
@@ -231,7 +238,7 @@ Test status (zero warnings in all crates):
 | opacus-node | 8 |
 | opacus-bridge | 27 |
 | opacus-dex | 14 |
-| opacus-network | 61 |
+| opacus-network | 65 |
 
 Performance: a membership-only spend proof at mainnet tree depth (2^32
 leaves) proves and verifies in about 2.1 s. The full v4 spend pipeline
@@ -271,15 +278,14 @@ GitHub publish with secret gates and no force-push).
 ## Roadmap
 
 Shipped in v0.6 (networking): persistent node identity, DLEq-bound
-authenticated handshake, peer discovery with disco gossip, and encrypted
-note transmission between wallets (crates/opacus-network, phases N1-N3).
+authenticated handshake, peer discovery with disco gossip, encrypted
+note transmission between wallets, and the N3b swap-plane upgrade frame
+(crates/opacus-network, phases N1-N3).
 
 - Prover optimization toward the 10 s budget [S4 8]: EC-chain column count
   and membership-path count in the v4 spend circuit.
 - Hashlock-in-circuit and CLSAG adaptor signatures for on-chain swap
   enforcement (Refund frames are notices in v0.1).
-- Swap choreography over the authenticated network node (protocol upgrade
-  frame for the swap payload over the auth session).
 - External audit before any mainnet use.
 
 ## Versioning and changelog

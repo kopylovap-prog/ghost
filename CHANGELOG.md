@@ -12,6 +12,28 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
 
 ## [Unreleased]
 
+### Added
+
+#### crates/opacus-network - swap upgrade frame (N3b)
+- handshake.rs: post-auth NetMsg::Upgrade{plane} frame - the wire-level
+  request to hand an authenticated connection to a named plane; the plane
+  is validated structurally (1..=16 chars, no whitespace) and must name
+  the one plane served today ("swap"), reusing the Malformed error for
+  precise reasons (no new HandshakeError variant).
+- net_node.rs: NetNode::attach_swap + NetEvent::Upgraded - after the
+  handshake the node serves Upgrade by handing the RAW socket to the
+  attached swap node (adopt_stream) at a clean frame boundary; the
+  control plane never sees swap frames and the swap plane never sees
+  net frames. Without an attached swap plane every Upgrade is rejected
+  and the connection closed; strict single-shot is preserved for
+  everything else.
+- opacusd: when both the net service and the swap service are running,
+  the daemon attaches the swap node to the net node, so peers upgrade
+  straight into the swap choreography.
+- Tests: opacus-network 61 -> 65 (wire roundtrip and bad-plane
+  rejection, Upgrade during the handshake, missing swap plane, and an
+  end-to-end Offer -> Accept over an upgraded connection).
+
 ## [0.6.0] - 2026-10-23
 
 Networking release: the P2P layer grows a persistent node identity, a
