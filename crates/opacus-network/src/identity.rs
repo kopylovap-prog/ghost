@@ -93,7 +93,14 @@ impl NodeIdentity {
     }
 
     /// Persist as JSON (secret scalar + node_id, both hex).
+    ///
+    /// Atomic-ish: the payload is written to a temp file in the same
+    /// directory and renamed over the target, so a crash mid-write can
+    /// never leave a torn identity file (a torn file would silently
+    /// rotate the node identity via the quarantine path). On unix the
+    /// file is created owner-only (0600).
     pub fn save(&self, path: &Path) -> io::Result<()> {
+        use std::io::Write;
         let file = IdentityFile {
             version: IDENTITY_FILE_VERSION,
             sk_hex: hex::encode(self.sk.to_bytes()),
@@ -105,7 +112,31 @@ impl NodeIdentity {
                 fs::create_dir_all(parent)?;
             }
         }
-        fs::write(path, json)
+        let tmp = path.with_extension(format!(
+            "tmp-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0)
+        ));
+        {
+            let mut opts = fs::OpenOptions::new();
+            opts.write(true).create(true).truncate(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                opts.mode(0o600);
+            }
+            let mut f = opts.open(&tmp)?;
+            f.write_all(&json)?;
+            f.sync_all()?;
+        }
+        if let Err(e) = fs::rename(&tmp, path) {
+            let _ = fs::remove_file(&tmp);
+            return Err(e);
+        }
+        Ok(())
     }
 
     /// Load the identity from `path`; generate and persist a fresh one when
@@ -140,6 +171,10 @@ impl NodeIdentity {
         let mut sb = [0u8; 32];
         sb.copy_from_slice(&sk_b);
         let sk = Scalar::from_canonical_bytes(sb).into_option()?;
+        if sk.to_bytes() == [0u8; 32] {
+            // degenerate all-zero identity: treat the file as corrupt
+            return None;
+        }
         let id = NodeIdentity::from_secret(sk);
         let nid = hex::decode(&file.node_id_hex).ok()?;
         if nid.as_slice() != id.node_id.as_slice() {
@@ -173,7 +208,12 @@ fn corrupt_backup_path(path: &Path) -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    PathBuf::from(format!("{}.corrupt-{}", path.display(), ts))
+    PathBuf::from(format!(
+        "{}.corrupt-{}-{}",
+        path.display(),
+        ts,
+        std::process::id()
+    ))
 }
 
 #[cfg(test)]
@@ -211,6 +251,28 @@ mod tests {
         assert!(matches!(kind2, IdentityLoad::Loaded));
         assert_eq!(id.node_id, id2.node_id);
         assert_eq!(id.sk.to_bytes(), id2.sk.to_bytes());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn identity_save_atomic_no_temp_leftovers() {
+        let dir = std::env::temp_dir().join(format!("opacus-id-atomic-{}", std::process::id()));
+        let path = dir.join("network-identity.json");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let id = NodeIdentity::generate();
+        id.save(&path).unwrap();
+        id.save(&path).unwrap(); // overwrite existing via rename
+        let mut leftovers = 0;
+        for entry in fs::read_dir(&dir).unwrap().flatten() {
+            if entry.file_name().to_string_lossy().contains("tmp-") {
+                leftovers += 1;
+            }
+        }
+        assert_eq!(leftovers, 0, "temp files left behind");
+        let (id2, kind) = NodeIdentity::load_or_generate(&path).unwrap();
+        assert!(matches!(kind, IdentityLoad::Loaded));
+        assert_eq!(id.node_id, id2.node_id);
         fs::remove_dir_all(&dir).unwrap();
     }
 
