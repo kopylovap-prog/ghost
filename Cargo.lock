@@ -993,8 +993,13 @@ dependencies = [
 name = "opacus-network"
 version = "0.5.0"
 dependencies = [
+ "blake3",
+ "curve25519-dalek",
+ "hex",
  "opacus-bridge",
+ "rand",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

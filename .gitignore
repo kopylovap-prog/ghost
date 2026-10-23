@@ -28,3 +28,6 @@ contracts/out/
 contracts/cache/
 *.bak
 *.bak-*
+
+# -- opacus-network: node identity files (v0.6 N1)
+network-identity*
