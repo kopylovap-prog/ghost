@@ -12,6 +12,14 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-23
+
+Protocol and hardening release: an authenticated connection can now be
+explicitly upgraded into the swap plane (NetMsg::Upgrade + attach_swap
+handover, opacusd wires both services), and the node identity secret is
+zeroized in memory behind a non-Copy SecretScalar wrapper - with the
+workspace gate (fmt, tests, clippy -D warnings) fully green.
+
 ### Added
 
 #### crates/opacus-network - swap upgrade frame (N3b)
@@ -42,6 +50,16 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
   silently duplicated; the Debug output still skips the secret, and
   the from_secret/generate/secret/load_or_generate API plus the
   on-disk file format are unchanged.
+
+### Changed
+
+- Workspace version bump 0.6.0 -> 0.7.0 (workspace.package plus the
+  explicit crate versions in opacus-dex and opacus-zk; Cargo.lock
+  regenerated).
+- README: status block and versioning line retargeted to v0.7.0; the
+  roadmap Shipped paragraph covers both rounds (v0.6 networking,
+  v0.7 protocol + hardening).
+- v0.7.0 annotated tag and GitHub release notes.
 
 ## [0.6.0] - 2026-10-23
 

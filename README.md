@@ -11,13 +11,13 @@ wrapped token (wGHOST), a DEX/bridge toolchain, and an atomic-swap stack for
 Monero <-> Opacus exchange, together with a zero-typing Windows (PowerShell)
 tooling chain.
 
-> **Status: v0.6.0: the P2P networking layer is live - authenticated peer
-> identity (DLEq-bound handshake), persistent peer discovery with disco
-> gossip, encrypted note transmission between wallets, and an Upgrade
-> frame that hands an authenticated connection to the swap plane. Balance
-> remains enforced in-circuit end to end (circuit, tx format, wallet,
-> consensus). Test networks only. An independent security audit is
-> REQUIRED before any mainnet use.**
+> **Status: v0.7.0: the P2P networking layer is live - authenticated peer
+> identity (DLEq-bound handshake, secret zeroized in memory), persistent
+> peer discovery with disco gossip, encrypted note transmission between
+> wallets, and an Upgrade frame that hands an authenticated connection
+> to the swap plane. Balance remains enforced in-circuit end to end
+> (circuit, tx format, wallet, consensus). Test networks only. An
+> independent security audit is REQUIRED before any mainnet use.**
 
 ## Quick Start
 
@@ -30,7 +30,7 @@ cargo build --release
 cargo test --workspace
 ```
 
-Typical timings on a modern machine (as of v0.6.0): clone ~20 s, release build ~2 min, full test run ~15-16 min - the consensus and wallet suites dominate it. 185 tests pass by default (0 failures); 3 slow full-depth (2^32 leaves) proof tests are ignored by default and can be run with:
+Typical timings on a modern machine (as of v0.7.0): clone ~20 s, release build ~2 min, full test run ~15-16 min - the consensus and wallet suites dominate it. 185 tests pass by default (0 failures); 3 slow full-depth (2^32 leaves) proof tests are ignored by default and can be run with:
 
 ```
 cargo test --workspace -- --ignored
@@ -283,9 +283,10 @@ GitHub publish with secret gates and no force-push).
 ## Roadmap
 
 Shipped in v0.6 (networking): persistent node identity, DLEq-bound
-authenticated handshake, peer discovery with disco gossip, encrypted
-note transmission between wallets, and the N3b swap-plane upgrade frame
-(crates/opacus-network, phases N1-N3).
+authenticated handshake, peer discovery with disco gossip, and encrypted
+note transmission between wallets (crates/opacus-network, phases N1-N3).
+Shipped in v0.7 (protocol + hardening): the N3b swap-plane upgrade frame
+and the F4 zeroized identity secret (non-Copy SecretScalar wrapper).
 
 - Prover optimization toward the 10 s budget [S4 8]: EC-chain column count
   and membership-path count in the v4 spend circuit.
@@ -298,7 +299,7 @@ note transmission between wallets, and the N3b swap-plane upgrade frame
 `CHANGELOG.md` follows the
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and
 [Semantic Versioning](https://semver.org/). The current release is
-**v0.6.0** (networking: authenticated peers, discovery, encrypted notefeed).
+**v0.7.0** (swap-plane upgrade frame + zeroized identity secret).
 
 ## License
 
