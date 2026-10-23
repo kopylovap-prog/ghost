@@ -171,7 +171,8 @@ The workspace builds warning-free; CI enforces clippy with -D warnings. License:
 ### opacus-network (networking + swap node)
 
 - Node identity and handshake (N1): persistent ristretto node identity
-  (atomic 0600 save, zero-scalar rejection) and a DLEq-authenticated
+  (atomic 0600 save, zero-scalar rejection, secret scalar zeroized on
+  drop via a non-Copy wrapper) and a DLEq-authenticated
   transcript handshake over the length-prefixed opacus-net-v1 wire, with
   a replay cache, strict frame-size/peer-id caps, and disconnects on any
   protocol violation (including a notes frame during the handshake).
@@ -272,6 +273,10 @@ GitHub publish with secret gates and no force-push).
 - Consensus v4 mutates state only after every validation step passes; the
   nullifier seen-set prevents replay; the activation-height gate prevents
   mixed v3/v4 replay across the fork boundary.
+- The stored node identity secret lives in a zeroizing non-Copy
+  wrapper: the scalar is scrubbed from memory when the identity is
+  dropped, and the identity Debug output never includes secret
+  material.
 - The wGHOST mint is quorum-gated; the testnet quorum is 1/1. An external
   audit is REQUIRED before any mainnet use; testnet keys are throwaway.
 

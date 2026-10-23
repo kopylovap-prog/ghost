@@ -10,7 +10,8 @@
 //! keys, so a peer can check Hello-consistency without any secret material.
 //! The identity persists as a small JSON file (`version`, secret scalar,
 //! node_id); public keys are always DERIVED from the scalar, so a tampered
-//! file is detected by re-deriving `node_id` and comparing.
+//! file is detected by re-deriving `node_id` and comparing. The secret
+//! scalar is scrubbed from memory when the identity is dropped (F4).
 
 use std::fs;
 use std::io;
@@ -23,16 +24,24 @@ use curve25519_dalek::scalar::Scalar;
 use opacus_bridge::xmr_dleq::KeyPair;
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// Domain tag for node_id derivation.
 pub const NODE_ID_TAG: &[u8] = b"opacus-node-id-v1";
 /// On-disk identity file format version.
 pub const IDENTITY_FILE_VERSION: u32 = 1;
 
+/// Zeroizing wrapper over the node secret scalar (F4): the scalar is
+/// overwritten with zeros when the wrapper is dropped. Copy is
+/// intentionally NOT implemented so an identity cannot be duplicated
+/// by accident (the Debug output of the owner skips this field).
+#[derive(Clone, Zeroize, ZeroizeOnDrop, PartialEq, Eq)]
+pub(crate) struct SecretScalar(Scalar);
+
 /// A DLEq-bound node identity.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct NodeIdentity {
-    pub(crate) sk: Scalar,
+    pub(crate) sk: SecretScalar,
     pub pe: CompressedEdwardsY,
     pub pr: CompressedRistretto,
     pub node_id: [u8; 16],
@@ -72,7 +81,7 @@ impl NodeIdentity {
         let pr = (sk * RISTRETTO_BASEPOINT_POINT).compress();
         let node_id = node_id_of(&pe, &pr);
         NodeIdentity {
-            sk,
+            sk: SecretScalar(sk),
             pe,
             pr,
             node_id,
@@ -81,7 +90,7 @@ impl NodeIdentity {
 
     /// Secret scalar (handshake signing, N1/N3).
     pub fn secret(&self) -> &Scalar {
-        &self.sk
+        &self.sk.0
     }
 
     /// Key pair for `opacus_bridge::xmr_dleq::verify`.
@@ -103,7 +112,7 @@ impl NodeIdentity {
         use std::io::Write;
         let file = IdentityFile {
             version: IDENTITY_FILE_VERSION,
-            sk_hex: hex::encode(self.sk.to_bytes()),
+            sk_hex: hex::encode(self.sk.0.to_bytes()),
             node_id_hex: hex::encode(self.node_id),
         };
         let json = serde_json::to_vec_pretty(&file).map_err(json_io)?;
@@ -269,7 +278,7 @@ mod tests {
         let (id2, kind2) = NodeIdentity::load_or_generate(&path).unwrap();
         assert!(matches!(kind2, IdentityLoad::Loaded));
         assert_eq!(id.node_id, id2.node_id);
-        assert_eq!(id.sk.to_bytes(), id2.sk.to_bytes());
+        assert_eq!(id.sk.0.to_bytes(), id2.sk.0.to_bytes());
         fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -313,7 +322,7 @@ mod tests {
         // valid scalar, WRONG node_id (tamper detection)
         let file = IdentityFile {
             version: IDENTITY_FILE_VERSION,
-            sk_hex: hex::encode(id2.sk.to_bytes()),
+            sk_hex: hex::encode(id2.sk.0.to_bytes()),
             node_id_hex: hex::encode([0u8; 16]),
         };
         fs::write(&path, serde_json::to_vec(&file).unwrap()).unwrap();

@@ -34,6 +34,15 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
   rejection, Upgrade during the handshake, missing swap plane, and an
   end-to-end Offer -> Accept over an upgraded connection).
 
+#### crates/opacus-network - zeroizing node identity secret (F4)
+- identity.rs: the secret scalar now lives in a SecretScalar wrapper
+  (Zeroize + ZeroizeOnDrop, mirroring the opacus-crypto SpendingKey
+  pattern): the scalar is overwritten with zeros when the identity is
+  dropped. NodeIdentity is no longer Copy, so an identity cannot be
+  silently duplicated; the Debug output still skips the secret, and
+  the from_secret/generate/secret/load_or_generate API plus the
+  on-disk file format are unchanged.
+
 ## [0.6.0] - 2026-10-23
 
 Networking release: the P2P layer grows a persistent node identity, a

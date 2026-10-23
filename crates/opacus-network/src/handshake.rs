@@ -535,7 +535,7 @@ impl HandshakeSide {
         OsRng.fill_bytes(&mut nonce);
         let side = HandshakeSide {
             role,
-            id: *id,
+            id: id.clone(),
             nonce,
             peer_pe: None,
             peer_pr: None,
