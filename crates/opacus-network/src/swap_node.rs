@@ -318,6 +318,13 @@ impl SwapNode {
         std::thread::spawn(move || Self::conn_loop(&node, stream));
     }
 
+    /// Attach an EXTERNAL socket to this swap node. N2-b+ upgrade path:
+    /// an authenticated net connection can be handed over to the swap
+    /// plane once the wire protocol gains an explicit Upgrade frame.
+    pub fn adopt_stream(self: &Arc<Self>, stream: TcpStream) {
+        self.attach(stream);
+    }
+
     /// Dial a peer, keep the write half for send_wire and attach a handler
     /// thread that reads everything coming back on this socket.
     pub fn connect(self: &Arc<Self>, addr: &str) -> Result<(), NetError> {

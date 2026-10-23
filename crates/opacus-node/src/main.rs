@@ -40,6 +40,11 @@ async fn main() {
         ..Default::default()
     };
 
+    // v0.6 N2b: authenticated net node + peer discovery. The node identity
+    // and the persistent peer store live in data_dir; GHOST_NET=0 disables,
+    // GHOST_NET_PORT / GHOST_NET_ADDR / GHOST_NET_PEERS / GHOST_NET_ADVERTISE
+    // override the defaults.
+    opacus_node::net_service::autostart(&config);
     let mut daemon = OpacusDaemon::new(config).expect("failed to start daemon");
     daemon.run().await.expect("daemon crashed");
 }
