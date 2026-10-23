@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Opacus — private payments with zk spend proofs</title>
-<meta name="description" content="Opacus fuses Monero-style ring-CT semantics with Halo2 FCMP++ zero-knowledge spend proofs. Rust workspace, no trusted setup, Monero atomic swaps, wGHOST bridge. Testnet v0.5.0.">
+<meta name="description" content="Opacus fuses Monero-style ring-CT semantics with Halo2 FCMP++ zero-knowledge spend proofs. Rust workspace, no trusted setup, Monero atomic swaps, wGHOST bridge. Testnet v0.7.0.">
 <link rel="canonical" href="https://opacus.io/">
 <meta property="og:title" content="Opacus — private payments with zk spend proofs">
-<meta property="og:description" content="Monero-style ring-CT + Halo2 FCMP++ zk proofs. No trusted setup. Testnet v0.5.0.">
+<meta property="og:description" content="Monero-style ring-CT + Halo2 FCMP++ zk proofs. No trusted setup. Testnet v0.7.0.">
 <meta property="og:url" content="https://opacus.io/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23070a12'/%3E%3Ccircle cx='16' cy='14' r='9' fill='none' stroke='%237c5cff' stroke-width='2.6'/%3E%3Ccircle cx='16' cy='14' r='3.2' fill='%232dd4bf'/%3E%3Cpath d='M9 24c2.2-2 11.8-2 14 0' stroke='%237c5cff' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
@@ -97,7 +97,7 @@ footer .wrap{display:flex;gap:20px;flex-wrap:wrap;align-items:center}
     <a class="lnk" href="#crates">Architecture</a>
     <a class="lnk" href="#roadmap">Roadmap</a>
     <span class="spacer"></span>
-    <span class="pill">v0.5.0 · testnet</span>
+    <span class="pill">v0.7.0 · testnet</span>
     <a class="lnk" href="https://github.com/opacusio/opacus">GitHub ↗</a>
   </div>
 </nav>
@@ -110,9 +110,9 @@ footer .wrap{display:flex;gap:20px;flex-wrap:wrap;align-items:center}
     <a class="cta p" href="#start">Get started</a>
     <a class="cta s" href="https://github.com/opacusio/opacus">Source on GitHub ↗</a>
     <div class="stats">
-      <div class="stat"><b>2.1 s</b><span>real spend proof at 2³² tree depth</span></div>
+      <div class="stat"><b>2.1 s</b><span>membership spend proof at 2³² tree depth</span></div>
       <div class="stat"><b>2³²</b><span>note-commitment tree capacity, constant memory</span></div>
-      <div class="stat"><b>125+</b><span>workspace tests + 46 real-prover zk tests</span></div>
+      <div class="stat"><b>185</b><span>workspace tests green · zero warnings · CI clippy -D warnings</span></div>
       <div class="stat"><b>0</b><span>trusted setup — IPA over Pasta (Vesta)</span></div>
     </div>
   </div>
@@ -134,7 +134,7 @@ footer .wrap{display:flex;gap:20px;flex-wrap:wrap;align-items:center}
       <div class="card"><div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><h3>Constant-memory tree</h3><p>A sparse Merkle frontier with empty-subtree-root padding computes roots and auth paths in O(leaves + depth) — the naive approach would need ~137 GB of RAM.</p></div>
       <div class="card"><div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M7 17l4-4 3 3 5-6"/><path d="M3 3v18h18"/></svg></div><h3>Monero atomic swaps</h3><p>Cross-group Schnorr DLEq proofs, a hashlock state machine (<code>Offered → … → Claimed/Refunded</code>) and a length-prefixed P2P protocol with tamper-evident offer ids.</p></div>
       <div class="card"><div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg></div><h3>Ethereum bridge &amp; wGHOST</h3><p>Quorum-gated ERC-20 wrapper deployed to Sepolia, EIP-155 signer, Uniswap Router02 calldata builders and a JSON-RPC client — a full DEX/bridge toolchain.</p></div>
-      <div class="card"><div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg></div><h3>Daemon &amp; CLI out of the box</h3><p><code>opacusd</code> runs a TCP swap node with automatic protocol replies; <code>opacus-cli</code> drives the shielded wallet — build, prove, self-verify before any state mutation.</p></div>
+      <div class="card"><div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg></div><h3>Daemon &amp; CLI out of the box</h3><p><code>opacusd</code> runs the net and swap services and hands authenticated connections to the swap plane; <code>opacus-cli</code> drives the shielded wallet — build, prove, self-verify before any state mutation.</p></div>
     </div>
   </div>
 </section>
@@ -147,7 +147,7 @@ footer .wrap{display:flex;gap:20px;flex-wrap:wrap;align-items:center}
     <pre class="pre"><span class="k">$</span> git clone https://github.com/opacusio/opacus.git
 <span class="k">$</span> cd opacus
 <span class="k">$</span> cargo build --release
-<span class="k">$</span> cargo test --workspace            <span class="c"># 125+ tests</span>
+<span class="k">$</span> cargo test --workspace            <span class="c"># 185 tests</span>
 
 <span class="c"># real (non-mock) IPA prover tests:</span>
 <span class="k">$</span> cargo test -p opacus-zk --features real-prover
@@ -169,7 +169,9 @@ footer .wrap{display:flex;gap:20px;flex-wrap:wrap;align-items:center}
       <div class="cr"><code>opacus-consensus</code><span>blocks &amp; transactions, nullifier-reuse prevention</span></div>
       <div class="cr"><code>opacus-bridge</code><span>Monero DLEq, atomic-swap FSM, RPC, swap P2P core</span></div>
       <div class="cr"><code>opacus-dex</code><span>Ethereum: RLP, ABI, EIP-155, Uniswap calldata, wGHOST</span></div>
-      <div class="cr"><code>opacus-network</code><span>TCP swap node with automatic protocol replies</span></div>
+      <div class="cr"><code>opacus-network</code><span>P2P: DLEq handshake, disco gossip, encrypted notes, swap-plane handover, TCP swap node</span></div>
+      <div class="cr"><code>opacus-node</code><span>opacusd daemon: net + swap services wired, consensus-gated tx submission</span></div>
+      <div class="cr"><code>opacus-light-client</code><span>compact block state and sync for light clients</span></div>
       <div class="cr"><code>opacus-miner</code><span>PoW mining engine with config and stats</span></div>
       <div class="cr"><code>opacus-cli</code><span>command-line wallet &amp; node control</span></div>
     </div>
@@ -184,7 +186,9 @@ footer .wrap{display:flex;gap:20px;flex-wrap:wrap;align-items:center}
       <div class="it done"><b>v0.3 — first public release</b><span>zk core, shielded wallet, Monero bridge, DEX toolchain, swap node, wGHOST on Sepolia.</span></div>
       <div class="it done"><b>v0.4 — in-circuit value conservation</b><span>v4 prover bench, README/CHANGELOG refresh, accumulator per the complete FCMP++ design.</span></div>
       <div class="it done"><b>v0.5 — opacusd daemon &amp; opacus.io</b><span>daemon rename, workspace-wide opacus rebrand, canonical site and release engineering.</span></div>
-      <div class="it"><b>v0.6 — networking phase</b><span>peer discovery &amp; gossip, DLEq-bound peer authentication, encrypted note transmission between wallets.</span></div>
+      <div class="it done"><b>v0.6 — networking</b><span>persistent node identity, DLEq-bound authenticated handshake, peer discovery with disco gossip, encrypted note transmission between wallets.</span></div>
+      <div class="it done"><b>v0.7 — protocol + hardening</b><span>authenticated connections upgrade into the swap plane (NetMsg::Upgrade + attach_swap, wired in opacusd); node identity secret zeroized in memory (non-Copy SecretScalar).</span></div>
+      <div class="it"><b>prover optimization — 10 s budget</b><span>EC-chain column count and membership-path count in the v4 spend circuit; current full-spend bench ~16 s vs the 10 s budget.</span></div>
       <div class="it"><b>on-chain swap enforcement</b><span>hashlock-in-circuit and CLSAG adaptor signatures; Refund frames become enforceable, not notices.</span></div>
       <div class="it"><b>mainnet — gated on audit</b><span>an external security audit is REQUIRED before any mainnet use. Testnet keys are throwaway.</span></div>
     </div>
