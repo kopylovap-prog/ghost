@@ -21,7 +21,7 @@ impl Default for NetworkConfig {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PeerInfo {
     pub peer_id: String,
     pub addr: String,

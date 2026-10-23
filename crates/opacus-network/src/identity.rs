@@ -220,6 +220,25 @@ fn corrupt_backup_path(path: &Path) -> PathBuf {
 mod tests {
     use super::*;
 
+    #[test]
+    fn identity_zero_scalar_rejected() {
+        let dir = std::env::temp_dir().join(format!("opacus-id-zero-{}", std::process::id()));
+        let path = dir.join("network-identity.json");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        // the all-zero scalar is canonical but degenerate: load must reject
+        // it and load_or_generate must quarantine the file
+        let file = IdentityFile {
+            version: IDENTITY_FILE_VERSION,
+            sk_hex: hex::encode([0u8; 32]),
+            node_id_hex: hex::encode([0u8; 16]),
+        };
+        fs::write(&path, serde_json::to_vec(&file).unwrap()).unwrap();
+        let (_, kind) = NodeIdentity::load_or_generate(&path).unwrap();
+        assert!(matches!(kind, IdentityLoad::RecoveredCorrupt { .. }));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
     fn scalar_from_seed(seed: u8) -> Scalar {
         let mut buf = [0u8; 32];
         buf[0] = seed;

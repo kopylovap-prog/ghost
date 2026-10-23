@@ -55,6 +55,12 @@ pub const HANDSHAKE_VERSION: u32 = 1;
 pub const REPLAY_CACHE_CAP: usize = 1024;
 /// Hard cap for one incoming network frame (prefix + body).
 pub const MAX_NET_FRAME: usize = 1_048_576;
+/// Hard cap on peer entries carried by one Disco frame.
+pub const DISCO_MAX_PEERS: usize = 32;
+/// Max length of one Disco addr string.
+pub const MAX_ADDR_LEN: usize = 128;
+/// Length of the hex-encoded node_id in Disco entries (16 bytes).
+pub const PEER_ID_HEX_LEN: usize = 32;
 
 /// Handshake/wire errors. Any verification failure MUST close the
 /// connection (and, at the node level, feed the ban policy).
@@ -70,6 +76,7 @@ pub enum HandshakeError {
     Json(String),
     ProtocolMismatch(String),
     TooLarge(usize),
+    DiscoTooLarge(usize),
 }
 
 impl std::fmt::Display for HandshakeError {
@@ -85,6 +92,9 @@ impl std::fmt::Display for HandshakeError {
             HandshakeError::Json(m) => write!(f, "json: {m}"),
             HandshakeError::ProtocolMismatch(p) => write!(f, "protocol mismatch: {p}"),
             HandshakeError::TooLarge(n) => write!(f, "frame too large: {n}"),
+            HandshakeError::DiscoTooLarge(n) => {
+                write!(f, "disco carries {n} peers, cap {}", DISCO_MAX_PEERS)
+            }
         }
     }
 }
@@ -112,10 +122,25 @@ pub struct AuthMsg {
     pub tag: String,
 }
 
+/// One peer entry in a Disco frame: identity (hex node_id) + dial addr.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct DiscoPeer {
+    pub peer_id: String,
+    pub addr: String,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NetMsg {
-    Hello { hello: Hello },
-    Auth { auth: AuthMsg },
+    Hello {
+        hello: Hello,
+    },
+    Auth {
+        auth: AuthMsg,
+    },
+    /// Post-auth discovery gossip: a bounded batch of known peers.
+    Disco {
+        peers: Vec<DiscoPeer>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -160,7 +185,36 @@ pub fn decode_net_frame(buf: &[u8]) -> Result<NetMsg, HandshakeError> {
     if frame.protocol != NET_PROTOCOL {
         return Err(HandshakeError::ProtocolMismatch(frame.protocol));
     }
+    if let NetMsg::Disco { peers } = &frame.msg {
+        validate_disco(peers)?;
+    }
     Ok(frame.msg)
+}
+
+// ---------------------------------------------------------------------------
+/// Structural validation of one Disco payload (wire level). Semantics
+/// (canonical addr parsing, self/known filtering) are enforced by the
+/// peer store on ingest.
+pub fn validate_disco(peers: &[DiscoPeer]) -> Result<(), HandshakeError> {
+    if peers.len() > DISCO_MAX_PEERS {
+        return Err(HandshakeError::DiscoTooLarge(peers.len()));
+    }
+    for p in peers {
+        if p.peer_id.len() != PEER_ID_HEX_LEN || !p.peer_id.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(HandshakeError::Malformed(
+                "disco peer_id must be 32 hex chars".to_string(),
+            ));
+        }
+        if p.addr.is_empty()
+            || p.addr.len() > MAX_ADDR_LEN
+            || p.addr.chars().any(char::is_whitespace)
+        {
+            return Err(HandshakeError::Malformed(format!(
+                "disco addr must be 1..={MAX_ADDR_LEN} chars, no whitespace"
+            )));
+        }
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -517,6 +571,137 @@ impl HandshakeSide {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ---- N2-a: Disco wire + F6 negative decode tests ----
+
+    fn disco_frame(peers: &[DiscoPeer]) -> Vec<u8> {
+        encode_net_frame(&NetMsg::Disco {
+            peers: peers.to_vec(),
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn disco_roundtrip_and_accepts_cap() {
+        let peers: Vec<DiscoPeer> = (0..DISCO_MAX_PEERS)
+            .map(|i| DiscoPeer {
+                peer_id: format!("{:032x}", i),
+                addr: format!("127.0.0.1:{}", 10_000 + i),
+            })
+            .collect();
+        let wire = disco_frame(&peers);
+        match decode_net_frame(&wire).unwrap() {
+            NetMsg::Disco { peers: got } => assert_eq!(got, peers),
+            other => panic!("unexpected msg: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn decode_rejects_disco_over_cap() {
+        let peers: Vec<DiscoPeer> = (0..=DISCO_MAX_PEERS)
+            .map(|i| DiscoPeer {
+                peer_id: format!("{:032x}", i),
+                addr: format!("127.0.0.1:{}", 10_000 + i),
+            })
+            .collect();
+        assert_eq!(peers.len(), DISCO_MAX_PEERS + 1);
+        assert_eq!(
+            decode_net_frame(&disco_frame(&peers)),
+            Err(HandshakeError::DiscoTooLarge(DISCO_MAX_PEERS + 1))
+        );
+    }
+
+    #[test]
+    fn decode_rejects_disco_bad_peer_id() {
+        let peers = vec![DiscoPeer {
+            peer_id: "nothex".to_string(),
+            addr: "127.0.0.1:10000".to_string(),
+        }];
+        assert!(matches!(
+            decode_net_frame(&disco_frame(&peers)),
+            Err(HandshakeError::Malformed(_))
+        ));
+    }
+
+    #[test]
+    fn decode_rejects_disco_bad_addr() {
+        let cases = vec![
+            String::new(),
+            "has space:1".to_string(),
+            "a".repeat(MAX_ADDR_LEN + 1),
+        ];
+        for addr in cases {
+            let peers = vec![DiscoPeer {
+                peer_id: format!("{:032x}", 1),
+                addr,
+            }];
+            assert!(matches!(
+                decode_net_frame(&disco_frame(&peers)),
+                Err(HandshakeError::Malformed(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn decode_rejects_short_and_length_mismatch() {
+        assert!(matches!(
+            decode_net_frame(&[]),
+            Err(HandshakeError::Malformed(_))
+        ));
+        let wire = disco_frame(&[]);
+        assert!(matches!(
+            decode_net_frame(&wire[..2]),
+            Err(HandshakeError::Malformed(_))
+        ));
+        let mut bad = wire.clone();
+        bad[0] = bad[0].wrapping_add(1); // declared != actual body length
+        assert!(matches!(
+            decode_net_frame(&bad),
+            Err(HandshakeError::Malformed(_))
+        ));
+    }
+
+    #[test]
+    fn decode_rejects_oversize_frame() {
+        let n = MAX_NET_FRAME + 1;
+        let mut buf = vec![0u8; n];
+        let declared = (n - 4) as u32;
+        buf[0..4].copy_from_slice(&declared.to_le_bytes());
+        assert_eq!(decode_net_frame(&buf), Err(HandshakeError::TooLarge(n)));
+    }
+
+    #[test]
+    fn decode_rejects_wrong_protocol_and_garbage() {
+        // well-formed envelope with a foreign protocol tag -> ProtocolMismatch
+        // (minimal valid msg shape: an empty Disco batch; the protocol tag
+        // check runs before validate_disco, so no peers are needed)
+        let body = br#"{"protocol":"bogus","Disco":{"peers":[]}}"#;
+        let mut wire = (body.len() as u32).to_le_bytes().to_vec();
+        wire.extend_from_slice(body);
+        assert_eq!(
+            decode_net_frame(&wire),
+            Err(HandshakeError::ProtocolMismatch("bogus".to_string()))
+        );
+
+        // structurally invalid msg -> Json error wins over the protocol tag
+        // check, because the envelope is parsed in a single serde pass
+        let body3 =
+            br#"{"protocol":"bogus","Hello":{"version":1,"node_id":"","pe":"","pr":"","nonce":""}}"#;
+        let mut wire3 = (body3.len() as u32).to_le_bytes().to_vec();
+        wire3.extend_from_slice(body3);
+        assert!(matches!(
+            decode_net_frame(&wire3),
+            Err(HandshakeError::Json(_))
+        ));
+
+        let body2 = b"not json at all";
+        let mut wire2 = (body2.len() as u32).to_le_bytes().to_vec();
+        wire2.extend_from_slice(body2);
+        assert!(matches!(
+            decode_net_frame(&wire2),
+            Err(HandshakeError::Json(_))
+        ));
+    }
 
     /// Both sides past the Hello exchange.
     fn pair() -> (HandshakeSide, HandshakeSide) {
