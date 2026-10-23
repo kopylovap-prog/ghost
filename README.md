@@ -11,9 +11,11 @@ wrapped token (wGHOST), a DEX/bridge toolchain, and an atomic-swap stack for
 Monero <-> Opacus exchange, together with a zero-typing Windows (PowerShell)
 tooling chain.
 
-> **Status: v0.5.0: balance is enforced
-> in-circuit end to end (circuit, tx format, wallet, consensus). Test
-> networks only. An independent security audit is REQUIRED before any
+> **Status: v0.6.0: the P2P networking layer is live - authenticated peer
+> identity (DLEq-bound handshake), persistent peer discovery with disco
+> gossip, and encrypted note transmission between wallets. Balance remains
+> enforced in-circuit end to end (circuit, tx format, wallet, consensus).
+> Test networks only. An independent security audit is REQUIRED before any
 > mainnet use.**
 
 ## Quick Start
@@ -27,7 +29,7 @@ cargo build --release
 cargo test --workspace
 ```
 
-Typical timings on a modern machine (as of v0.5.0): clone ~20 s, release build ~2 min, full test run ~15-16 min - the consensus and wallet suites dominate it. 129 tests pass by default (0 failures); 3 slow full-depth (2^32 leaves) proof tests are ignored by default and can be run with:
+Typical timings on a modern machine (as of v0.6.0): clone ~20 s, release build ~2 min, full test run ~15-16 min - the consensus and wallet suites dominate it. 181 tests pass by default (0 failures); 3 slow full-depth (2^32 leaves) proof tests are ignored by default and can be run with:
 
 ```
 cargo test --workspace -- --ignored
@@ -69,7 +71,7 @@ The workspace builds warning-free; CI enforces clippy with -D warnings. License:
 | `crates/opacus-node` | Daemon: transaction submission gated by consensus `accept_transaction` |
 | `crates/opacus-bridge` | Monero bridge: cross-group DLEq, atomic-swap state machine, Monero RPC, swap P2P protocol |
 | `crates/opacus-dex` | Ethereum side: RLP, ABI, EIP-155 signer, Uniswap Router02 calldata, JSON-RPC client, wGHOST helpers |
-| `crates/opacus-network` | TCP swap node with automatic protocol replies |
+| `crates/opacus-network` | Networking: node identity + DLEq handshake, persistent peers + disco gossip, encrypted note feed, TCP swap node |
 | `contracts/` | wGHOST.sol (quorum-mint ERC-20 wrapper) + Foundry deployment script and tests |
 | repo root | Zero-typing PowerShell tooling: Sepolia deploy chain, key rotation, GitHub publish, release |
 
@@ -165,15 +167,27 @@ The workspace builds warning-free; CI enforces clippy with -D warnings. License:
   sendRawTransaction) with fake-transport tests.
 - wGHOST helpers: set_wghost/burn calldata and Mint/Burn event topics.
 
-### opacus-network (swap node)
+### opacus-network (networking + swap node)
 
-- TCP swap node reusing opacus-bridge::swap_p2p: framed socket I/O with
-  declared-length caps, SwapNodeConfig, listener plus bootstrap dialing, a
-  full-duplex connection loop with automatic protocol replies
-  (Offer -> Accept, GhostLocked -> Claim) on the same socket,
-  protocol-violation disconnects, and a bounded node-event ring log.
-- End-to-end test: complete swap choreography across two live TCP nodes on
-  127.0.0.1:0.
+- Node identity and handshake (N1): persistent ristretto node identity
+  (atomic 0600 save, zero-scalar rejection) and a DLEq-authenticated
+  transcript handshake over the length-prefixed opacus-net-v1 wire, with
+  a replay cache, strict frame-size/peer-id caps, and disconnects on any
+  protocol violation (including a notes frame during the handshake).
+- Peer store and discovery (N2): persistent peers file (bounded cap with
+  oldest eviction, dedupe with monotonic last_seen, corrupt-file
+  quarantine) and disco batch gossip propagated through common peers.
+- Authenticated node (N2-b): every post-handshake frame is bound to the
+  authenticated peer and limited to Disco | Notes; bounded event ring;
+  opacusd wiring (identity, disco, notes behind the daemon).
+- Encrypted note feed (N3): blake3-only ECIES to the recipient ristretto
+  identity key, encrypt-then-MAC verified BEFORE any decryption, an
+  OPAQUE payload owned by the wallet layer, a public blake3 id any relay
+  can verify and dedupe on, and a hop budget a relay can decrement
+  WITHOUT keys (the MAC does not cover hops; the relaying node recomputes
+  the public id); zero-hop blobs are stored but never relayed.
+- TCP swap node: automatic protocol replies (Offer -> Accept,
+  GhostLocked -> Claim) with protocol-violation disconnects.
 
 ### contracts (wGHOST token)
 
@@ -214,16 +228,17 @@ Test status (zero warnings in all crates):
 | opacus-zk | 44 default + 2 real-prover (+1 ignored mainnet-depth mock, k = 12) |
 | opacus-wallet | 14 fast + 2 mainnet-depth end-to-end (ignored by default; run with `cargo test -p opacus-wallet -- --ignored`) |
 | opacus-consensus | 10 (real IPA proofs, depth 8) |
-| opacus-node | 7 |
+| opacus-node | 8 |
 | opacus-bridge | 27 |
 | opacus-dex | 14 |
-| opacus-network | 10 |
+| opacus-network | 61 |
 
 Performance: a membership-only spend proof at mainnet tree depth (2^32
 leaves) proves and verifies in about 2.1 s. The full v4 spend pipeline
 (keygen + prove, real IPA, k = 13) currently benches at about 16 s against
 the 10 s budget [S4 8]; the optimization (EC-chain column count,
-membership-path count) is queued for v0.6 - see `benches/prover.rs`.
+membership-path count) is queued for the next minor release - see
+`benches/prover.rs`.
 
 ## Sepolia deployment (zero-typing PowerShell chain)
 
@@ -253,15 +268,18 @@ GitHub publish with secret gates and no force-push).
 - The wGHOST mint is quorum-gated; the testnet quorum is 1/1. An external
   audit is REQUIRED before any mainnet use; testnet keys are throwaway.
 
-## Roadmap (v0.6)
+## Roadmap
+
+Shipped in v0.6 (networking): persistent node identity, DLEq-bound
+authenticated handshake, peer discovery with disco gossip, and encrypted
+note transmission between wallets (crates/opacus-network, phases N1-N3).
 
 - Prover optimization toward the 10 s budget [S4 8]: EC-chain column count
   and membership-path count in the v4 spend circuit.
 - Hashlock-in-circuit and CLSAG adaptor signatures for on-chain swap
   enforcement (Refund frames are notices in v0.1).
-- Peer discovery/gossip and DLEq-bound peer authentication for
-  opacus-network.
-- Encrypted note transmission between wallets.
+- Swap choreography over the authenticated network node (protocol upgrade
+  frame for the swap payload over the auth session).
 - External audit before any mainnet use.
 
 ## Versioning and changelog
@@ -269,7 +287,7 @@ GitHub publish with secret gates and no force-push).
 `CHANGELOG.md` follows the
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and
 [Semantic Versioning](https://semver.org/). The current release is
-**v0.5.0** (Opacus rebrand).
+**v0.6.0** (networking: authenticated peers, discovery, encrypted notefeed).
 
 ## License
 

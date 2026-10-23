@@ -12,16 +12,66 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-23
+
+Networking release: the P2P layer grows a persistent node identity, a
+DLEq-authenticated handshake, persistent peer discovery with disco gossip,
+and encrypted wallet note transmission - all inside crates/opacus-network
+with the workspace gate (fmt, tests, clippy -D warnings) fully green.
+
+### Added
+
+#### crates/opacus-network - networking phases N1-N3
+- identity.rs (N1): persistent node identity - ristretto scalar plus
+  compressed public key, deterministic from a 32-byte secret, atomic save
+  with 0600 permissions and backup-collision guard, zero-scalar rejection.
+- handshake.rs (N1): DLEq-authenticated handshake over the length-prefixed
+  opacus-net-v1 wire: transcript hashing, forged-transcript and tampered
+  DLEq rejection, wrong-key and replay rejection, replay cache with cap
+  eviction, strict frame-size and peer-id caps, and a notes frame during
+  the handshake disconnects (HandshakeError::NotesTooLarge).
+- peers.rs (N2): persistent peer store - bounded cap with oldest eviction,
+  insert dedupe with monotonic last_seen, remote-batch merge with
+  self/conflict skips, corrupt-file quarantine, disco batch roundtrip.
+- net_node.rs (N2-b): authenticated network node - every post-auth frame
+  is Disco | Notes bound to the authenticated peer, disco gossip
+  propagates through common peers, a bounded NoteInbox dedupes by the
+  public note id, the bounded flood relay decrements the hop budget and
+  recomputes the public id, send_notes targets one authenticated peer,
+  NotesObserved event, opacusd wiring.
+- notes.rs (N3): encrypted note feed - blake3-only ECIES to the recipient
+  ristretto identity key (shared = e * pr; session keys via blake3
+  derive_key over epk/pr/shared/nonce; keyed-blake3 keystream),
+  encrypt-then-MAC verified BEFORE any decryption, an OPAQUE payload
+  owned by the wallet layer, a public blake3 id digest any relay can
+  verify and dedupe on, and a hop budget a relay can decrement WITHOUT
+  keys (the MAC does not cover hops; the relaying node recomputes the
+  public id); zero-hop blobs are stored but never relayed.
+- Tests: opacus-network 10 -> 61, opacus-node 7 -> 8.
+
+### Changed
+- Workspace version bump 0.5.0 -> 0.6.0 (workspace.package plus the
+  explicit crate versions in opacus-dex and opacus-zk).
+- README: status line retargeted to v0.6.0; networking sections in the
+  workspace layout, components, and the test matrix; roadmap updated
+  (networking items shipped).
+- CI: the rust job now enforces clippy with -D warnings on the whole
+  workspace (the README warning-free claim is CI-checked).
+- v0.6.0 annotated tag and GitHub release notes.
+
+### Fixed
+- CHANGELOG: stray literal backtick-r artifacts in the 0.5.0 entry.
+
 ## [0.5.0] - 2026-10-21
 
 - daemon binary renamed to opacusd; daemon struct renamed to OpacusDaemon (crate opacus-node)
 - workspace version bump 0.4.0 -> 0.5.0
 ### Changed
 - Rebrand: the workspace moved to the opacusio GitHub org and every crate
-  was renamed `ghost-*` -> `opacus-*` (packages, libraries, the`r
+  was renamed `ghost-*` -> `opacus-*` (packages, libraries, the
   `cli/ghost` -> `cli/opacus` binary `ghost` -> `opacus`, workspace
   members, cross-crate dependencies, imports, benches, CI and docs).
-  Deliberately unchanged: wire-protocol strings (`ghost-swap-p2p-v1`,`r
+  Deliberately unchanged: wire-protocol strings (`ghost-swap-p2p-v1,
   `ghost-swap-offer-id-v1`), circuit domain labels (`GHOST/v4/*`), the
   Poseidon label (`ghost-zk-poseidon-v1`) and the wGHOST token.
 

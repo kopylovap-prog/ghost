@@ -1,6 +1,6 @@
 [package]
 name = "opacus-dex"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 description = "Uniswap integration for Ghost: EIP-155 tx signing, Uniswap V2 router calldata, wGHOST helpers"
 

@@ -24,6 +24,9 @@ jobs:
       - name: Run opacus-zk real-prover tests
         run: cargo test -p opacus-zk --features real-prover
 
+      - name: Clippy (deny warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
   contracts:
     name: Foundry contracts (wGHOST)
     runs-on: ubuntu-latest
