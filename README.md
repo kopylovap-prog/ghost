@@ -223,7 +223,7 @@ Performance: a membership-only spend proof at mainnet tree depth (2^32
 leaves) proves and verifies in about 2.1 s. The full v4 spend pipeline
 (keygen + prove, real IPA, k = 13) currently benches at about 16 s against
 the 10 s budget [S4 8]; the optimization (EC-chain column count,
-membership-path count) is queued for v0.5 - see `benches/prover.rs`.
+membership-path count) is queued for v0.6 - see `benches/prover.rs`.
 
 ## Sepolia deployment (zero-typing PowerShell chain)
 
@@ -253,7 +253,7 @@ GitHub publish with secret gates and no force-push).
 - The wGHOST mint is quorum-gated; the testnet quorum is 1/1. An external
   audit is REQUIRED before any mainnet use; testnet keys are throwaway.
 
-## Roadmap (v0.5)
+## Roadmap (v0.6)
 
 - Prover optimization toward the 10 s budget [S4 8]: EC-chain column count
   and membership-path count in the v4 spend circuit.

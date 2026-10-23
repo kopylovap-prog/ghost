@@ -1,3 +1,15 @@
+# Changelog
+
+All notable changes to the **Opacus** monorepo are documented in this file.
+The initial public release consolidates the full pre-history of the private
+development phase; every further change will be added here following the
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and
+[Semantic Versioning](https://semver.org/).
+
+Opacus is a privacy payment network that fuses Monero-style ring-CT semantics
+with Zcash-style Halo2 FCMP++ spend proofs, plus an Ethereum-side wrapped
+token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
+
 ## [Unreleased]
 
 ## [0.5.0] - 2026-10-21
@@ -13,6 +25,7 @@
   `ghost-swap-offer-id-v1`), circuit domain labels (`GHOST/v4/*`), the
   Poseidon label (`ghost-zk-poseidon-v1`) and the wGHOST token.
 
+- Deferred: v4 prover optimization (EC-chain column count, membership-path count) retargeted to the next minor release.
 ## [0.4.0] - 2026-10-20
 
 Value conservation release: the full FCMP++-style v4 spend pipeline now
@@ -91,18 +104,6 @@ prover benchmark, and a documentation refresh
   nullifier replay is rejected via the seen-set; the fee floor is
   enforced at consensus level; the activation-height gate prevents mixed
   v3/v4 replay across the fork boundary.
-
-# Changelog
-
-All notable changes to the **Ghost** monorepo are documented in this file.
-The initial public release consolidates the full pre-history of the private
-development phase; every further change will be added here following the
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and
-[Semantic Versioning](https://semver.org/).
-
-Ghost is a privacy payment network that fuses Monero-style ring-CT semantics
-with Zcash-style Halo2 FCMP++ spend proofs, plus an Ethereum-side wrapped
-token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
 
 ## [0.3.0] - 2026-10-18
 
