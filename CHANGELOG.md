@@ -53,6 +53,10 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
 - Chore (Infra-2, CI): all workflow actions pinned to full commit SHAs
   (actions/checkout v4.4.0, dtolnay/rust-toolchain stable,
   Swatinem/rust-cache v2.9.3) - mutable tag/branch refs eliminated.
+- Chore (Infra-3, CI): cargo-deny wired as a dedicated job (advisories /
+  licenses / bans) reading the repository deny.toml policy;
+  EmbarkStudios/cargo-deny-action pinned to a full commit SHA (v2.1.1) -
+  supply-chain policy now enforced on every push and PR.
 
 ## [0.7.0] - 2026-10-23
 
