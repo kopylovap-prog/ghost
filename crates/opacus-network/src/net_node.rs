@@ -167,6 +167,17 @@ pub enum NetEvent {
 
 const EVENT_CAP: usize = 1024;
 
+/// Maximum number of inbound connections that may sit mid-handshake
+/// (half-open) at the same time (audit H-01). A rolling pool of stalled
+/// dials must not be able to occupy every handshake slot.
+const MAX_HALF_OPEN: usize = 64;
+
+/// Hard wall-clock read budget for the whole handshake phase. With the
+/// replay-cache lock no longer held across socket reads (audit H-01) a
+/// stalled handshake only burns its own thread; this timeout reclaims
+/// it quickly. The keep-alive loop restores the regular idle timeout.
+const HANDSHAKE_READ_TIMEOUT: Duration = Duration::from_secs(10);
+
 fn kind_of(m: &NetMsg) -> &'static str {
     match m {
         NetMsg::Hello { .. } => "Hello",
@@ -197,6 +208,9 @@ pub struct NetNode {
     /// Optional swap-plane target of Upgrade handovers (N3b). `None`
     /// until attach_swap is called; every Upgrade is rejected before.
     swap: Arc<Mutex<Option<Arc<SwapNode>>>>,
+    /// Inbound connections currently mid-handshake (half-open). Bounded
+    /// by MAX_HALF_OPEN (audit H-01).
+    half_open: Arc<std::sync::atomic::AtomicUsize>,
     events: Arc<Mutex<Vec<NetEvent>>>,
 }
 
@@ -225,6 +239,7 @@ impl NetNode {
             conns: Arc::new(Mutex::new(HashMap::new())),
             notes: Arc::new(Mutex::new(NoteInbox::new(NOTE_INBOX_CAP))),
             swap: Arc::new(Mutex::new(None)),
+            half_open: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             events: Arc::new(Mutex::new(Vec::new())),
         });
         node.spawn_listener();
@@ -462,10 +477,36 @@ fn write_net_frame(stream: &mut TcpStream, msg: &NetMsg) -> Result<(), NetNodeEr
 
 impl NetNode {
     fn conn_run(self: &Arc<Self>, mut stream: TcpStream, role: Role, peer_addr: String) {
-        stream.set_read_timeout(Some(self.cfg.read_timeout)).ok();
+        // Audit H-01: the handshake phase runs under a short dedicated
+        // read budget; the keep-alive loop below restores the regular
+        // idle timeout.
+        stream.set_read_timeout(Some(HANDSHAKE_READ_TIMEOUT)).ok();
         stream.set_nodelay(true).ok();
 
-        let (vp, batch) = match self.handshake_phase(&mut stream, role) {
+        // Audit H-01: inbound connections are gated by a half-open cap
+        // BEFORE entering the handshake, so a rolling pool of stalled
+        // dials cannot occupy every handshake slot.
+        let handshake_result = if role == Role::Responder {
+            let cur = self
+                .half_open
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if cur >= MAX_HALF_OPEN {
+                self.half_open
+                    .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+                self.log(NetEvent::Rejected {
+                    addr: peer_addr,
+                    reason: format!("too many half-open connections ({cur})"),
+                });
+                return;
+            }
+            let outcome = self.handshake_phase(&mut stream, role);
+            self.half_open
+                .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+            outcome
+        } else {
+            self.handshake_phase(&mut stream, role)
+        };
+        let (vp, batch) = match handshake_result {
             Ok(ok) => ok,
             Err(e) => {
                 self.log(NetEvent::Rejected {
@@ -475,6 +516,9 @@ impl NetNode {
                 return;
             }
         };
+
+        // Audit H-01: back to the regular idle timeout for keep-alive.
+        stream.set_read_timeout(Some(self.cfg.read_timeout)).ok();
 
         let peer_hex = hex::encode(vp.node_id);
         match stream.try_clone() {
@@ -650,7 +694,6 @@ impl NetNode {
         role: Role,
     ) -> Result<(VerifiedPeer, Vec<DiscoPeer>), NetNodeError> {
         let (mut side, hello) = HandshakeSide::start(role, &self.identity);
-        let mut cache = self.cache.lock().unwrap();
 
         let read_msg = |stream: &mut TcpStream| -> Result<NetMsg, NetNodeError> {
             let wire = read_net_frame(stream, self.cfg.max_frame_len)?.ok_or_else(|| {
@@ -684,7 +727,13 @@ impl NetNode {
                         ))))
                     }
                 };
-                let vp = side.verify_auth(&peer_auth, &mut cache)?;
+                let vp = {
+                    // Audit H-01: the replay-cache lock is taken ONLY
+                    // for the check-and-insert, never across the
+                    // blocking socket reads above.
+                    let mut cache = self.cache.lock().unwrap();
+                    side.verify_auth(&peer_auth, &mut cache)?
+                };
                 let my_auth = side.produce_auth()?;
                 write_net_frame(stream, &NetMsg::Auth { auth: my_auth })?;
                 Ok((vp, self.our_batch()))
@@ -712,7 +761,12 @@ impl NetNode {
                         ))))
                     }
                 };
-                let vp = side.verify_auth(&peer_auth, &mut cache)?;
+                let vp = {
+                    // Audit H-01: same narrowed critical section as the
+                    // initiator role above.
+                    let mut cache = self.cache.lock().unwrap();
+                    side.verify_auth(&peer_auth, &mut cache)?
+                };
                 Ok((vp, self.our_batch()))
             }
         }
@@ -842,6 +896,66 @@ mod tests {
         wait_until(10, || c.peers().iter().any(|p| p.peer_id == a_id));
     }
 
+    #[test]
+    fn stalled_handshake_does_not_block_other_handshakes() {
+        // Audit H-01 regression: the replay-cache lock must not be held
+        // across blocking socket reads. A stalled inbound connection
+        // (open, silent) must not delay a concurrent handshake.
+        let b = start_node(4, None);
+        let addr = b.local_addr().unwrap().to_string();
+        let stalled = TcpStream::connect(&addr).unwrap();
+        stalled.set_nodelay(true).ok();
+        // give the accept loop time to pick the stalled conn up first
+        std::thread::sleep(Duration::from_millis(100));
+        // a full handshake must complete promptly DESPITE the stalled
+        // connection; under the old lock placement this blocked for the
+        // whole read timeout (20 s in tests)
+        let t0 = Instant::now();
+        let s2 = raw_dial_handshake_only(&addr);
+        let elapsed = t0.elapsed();
+        drop(s2);
+        drop(stalled);
+        assert!(
+            elapsed < Duration::from_secs(8),
+            "handshake blocked for {elapsed:?} - replay-cache lock is held across reads"
+        );
+    }
+
+    #[test]
+    fn half_open_cap_rejects_excess_inbound() {
+        // Audit H-01 regression: inbound connections beyond the
+        // half-open cap are rejected immediately (closed without a
+        // handshake) instead of piling up unbounded.
+        let b = start_node(5, None);
+        let addr = b.local_addr().unwrap().to_string();
+        let mut held: Vec<TcpStream> = Vec::new();
+        for _ in 0..MAX_HALF_OPEN {
+            held.push(TcpStream::connect(&addr).unwrap());
+        }
+        // keep probing until the cap rejection shows up in the event
+        // log (self-calibrating against accept-loop timing races)
+        let mut rejected = false;
+        for _ in 0..(MAX_HALF_OPEN * 4) {
+            let mut probe = TcpStream::connect(&addr).unwrap();
+            probe
+                .set_read_timeout(Some(Duration::from_millis(100)))
+                .ok();
+            let mut buf = [0u8; 1];
+            let _ = probe.read(&mut buf); // rejected conns see EOF/reset fast
+            held.push(probe);
+            if b.events().iter().any(|e| {
+                matches!(
+                    e,
+                    NetEvent::Rejected { reason, .. } if reason.contains("half-open")
+                )
+            }) {
+                rejected = true;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(rejected, "no half-open cap rejection observed");
+    }
     #[test]
     fn second_hello_after_auth_rejected() {
         let b = start_node(2, None);

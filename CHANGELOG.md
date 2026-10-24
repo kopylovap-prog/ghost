@@ -21,6 +21,14 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
   s = r + c*x. The nonce source now draws 32 bytes from the OS CSPRNG
   (rand::rngs::OsRng, already a workspace dependency) and a regression
   test pins nonce non-determinism.
+- Security (H-01): the per-node replay cache was locked for the whole
+  handshake phase, so one stalled inbound connection could freeze every
+  handshake on the node for the socket timeout (a rolling pool of
+  stalled dials meant a permanent handshake blackout). The replay-cache
+  critical section is now narrowed to the check-and-insert only, the
+  handshake phase runs under a dedicated 10 s read budget, and inbound
+  handshakes are bounded by a half-open cap (MAX_HALF_OPEN = 64), with
+  a regression test per fix.
 
 ## [0.7.0] - 2026-10-23
 

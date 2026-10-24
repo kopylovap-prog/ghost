@@ -30,7 +30,7 @@ cargo build --release
 cargo test --workspace
 ```
 
-Typical timings on a modern machine (as of v0.7.0): clone ~20 s, release build ~2 min, full test run ~15-16 min - the consensus and wallet suites dominate it. 186 tests pass by default (0 failures); 3 slow full-depth (2^32 leaves) proof tests are ignored by default and can be run with:
+Typical timings on a modern machine (as of v0.7.0): clone ~20 s, release build ~2 min, full test run ~15-16 min - the consensus and wallet suites dominate it. 188 tests pass by default (0 failures); 3 slow full-depth (2^32 leaves) proof tests are ignored by default and can be run with:
 
 ```
 cargo test --workspace -- --ignored
@@ -239,7 +239,7 @@ Test status (zero warnings in all crates):
 | opacus-node | 8 |
 | opacus-bridge | 28 |
 | opacus-dex | 14 |
-| opacus-network | 65 |
+| opacus-network | 67 |
 
 Performance: a membership-only spend proof at mainnet tree depth (2^32
 leaves) proves and verifies in about 2.1 s. The full v4 spend pipeline
