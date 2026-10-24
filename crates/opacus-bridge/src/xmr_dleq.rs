@@ -115,18 +115,15 @@ pub fn verify(kp: &KeyPair, proof: &DleqProof) -> Result<(), DleqError> {
     Ok(())
 }
 
-/// Deterministic-in-tests byte source (real code uses OsRng; blake3 of
-/// nano-time keeps this crate dependency-free).
+/// Cryptographically secure nonce source: 32 bytes from the OS CSPRNG.
+/// A Schnorr nonce MUST be unpredictable and never repeated: with a
+/// public proof (s, R1, R2, c) and a known nonce r the secret falls out
+/// as x = (s - r) * c^-1. The previous blake3(nano-time + pid) source
+/// was predictable within a brute-forced time window (audit C-01).
 fn rand_bytes() -> [u8; 32] {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let mut seed = Vec::with_capacity(16);
-    let t = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default();
-    seed.extend_from_slice(&t.as_nanos().to_le_bytes());
-    seed.extend_from_slice(&std::process::id().to_le_bytes());
+    use rand::RngCore;
     let mut out = [0u8; 32];
-    out.copy_from_slice(blake3::hash(&seed).as_bytes());
+    rand::rngs::OsRng.fill_bytes(&mut out);
     out
 }
 
@@ -193,6 +190,24 @@ mod tests {
         kp.ristretto_pub = CompressedRistretto(y2);
         let proof = prove(&secret);
         assert_eq!(verify(&kp, &proof), Err(DleqError::BadProof));
+    }
+
+    #[test]
+    fn nonce_source_is_csprng() {
+        // Two raw draws from the nonce source must differ: the OS CSPRNG
+        // does not repeat 32-byte outputs in practice (2^-256 collision).
+        // A deterministic source (the old blake3(nanos + pid) bug, C-01)
+        // would make the Schnorr nonce predictable and leak the secret
+        // scalar via s = r + c*x.
+        assert_ne!(rand_bytes(), rand_bytes());
+        // Two proofs of the SAME secret must use different commitments:
+        // with a fresh nonce each call, R1 = r*G1 differs. Identical R1
+        // would mean nonce reuse - catastrophic for Schnorr signatures.
+        let secret = test_secret(9);
+        let p1 = prove(&secret);
+        let p2 = prove(&secret);
+        assert_ne!(p1.r1, p2.r1, "nonce must not repeat across proofs");
+        assert_ne!(p1.s, p2.s, "response must not repeat across proofs");
     }
 
     #[test]

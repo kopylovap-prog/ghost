@@ -12,6 +12,16 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
 
 ## [Unreleased]
 
+### Fixed
+
+- Security (C-01): the Schnorr nonce of the cross-group DLEq proof
+  (`opacus-bridge::xmr_dleq`) was derived from blake3(nano-time + pid),
+  making it predictable. A predictable nonce lets an observer recover
+  the node secret scalar from the public handshake Auth proof via
+  s = r + c*x. The nonce source now draws 32 bytes from the OS CSPRNG
+  (rand::rngs::OsRng, already a workspace dependency) and a regression
+  test pins nonce non-determinism.
+
 ## [0.7.0] - 2026-10-23
 
 Protocol and hardening release: an authenticated connection can now be

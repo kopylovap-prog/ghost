@@ -30,7 +30,7 @@ cargo build --release
 cargo test --workspace
 ```
 
-Typical timings on a modern machine (as of v0.7.0): clone ~20 s, release build ~2 min, full test run ~15-16 min - the consensus and wallet suites dominate it. 185 tests pass by default (0 failures); 3 slow full-depth (2^32 leaves) proof tests are ignored by default and can be run with:
+Typical timings on a modern machine (as of v0.7.0): clone ~20 s, release build ~2 min, full test run ~15-16 min - the consensus and wallet suites dominate it. 186 tests pass by default (0 failures); 3 slow full-depth (2^32 leaves) proof tests are ignored by default and can be run with:
 
 ```
 cargo test --workspace -- --ignored
@@ -237,7 +237,7 @@ Test status (zero warnings in all crates):
 | opacus-wallet | 14 fast + 2 mainnet-depth end-to-end (ignored by default; run with `cargo test -p opacus-wallet -- --ignored`) |
 | opacus-consensus | 10 (real IPA proofs, depth 8) |
 | opacus-node | 8 |
-| opacus-bridge | 27 |
+| opacus-bridge | 28 |
 | opacus-dex | 14 |
 | opacus-network | 65 |
 
