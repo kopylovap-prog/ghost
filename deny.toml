@@ -1,0 +1,48 @@
+# cargo-deny supply-chain policy for the Opacus monorepo (companion to
+# .cargo/audit.toml). The licenses allowlist below was derived from the
+# actual locked dependency tree (233 packages, 2026-10-24); re-run
+# `cargo deny check` after dependency changes and extend the list by
+# documented exception, not by habit. CI wiring of cargo-deny is a
+# tracked follow-up.
+
+[advisories]
+# RUSTSEC-2026-0387 (crypto-bigint 0.5.5): no patched release exists;
+# transitive dependency reached via elliptic-curve and the signature/zk
+# stack. Same documented exception as .cargo/audit.toml.
+ignore = [
+    { id = "RUSTSEC-2026-0387", reason = "transitive dependency (via elliptic-curve, signature/zk stack), no patched release; re-evaluate before the next release" },
+]
+
+[licenses]
+allow = [
+    # dominant licenses of the tree
+    "Apache-2.0",
+    "MIT",
+    # full coverage derived from Cargo.lock, most notable first
+    "Apache-2.0 WITH LLVM-exception", # blake3 (asm), wasi
+    "BSD-1-Clause",                   # fiat-crypto
+    "BSD-2-Clause",                   # zerocopy
+    "BSD-3-Clause",                   # curve25519-dalek, subtle
+    "CC0-1.0",                        # blake3, tiny-keccak, constant_time_eq
+    "CDLA-Permissive-2.0",            # webpki-roots
+    "ISC",                            # rustls, rustls-webpki, untrusted
+    "MIT-0",                          # constant_time_eq
+    "MPL-2.0",                        # option-ext (directories)
+    "Unicode-3.0",                    # icu unicode stack
+    "Unlicense",                      # aho-corasick, memchr
+    "Zlib",                           # miniz_oxide, zlib-rs
+    "0BSD",                           # adler2
+]
+
+[licenses.private]
+# workspace members are not published to crates.io yet; their license
+# is inherited from workspace.package (Apache-2.0)
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"

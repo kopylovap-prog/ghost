@@ -43,6 +43,16 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
   a documented audit ignore for RUSTSEC-2026-0387 (crypto-bigint) was added in
   .cargo/audit.toml (transitive dependency, re-evaluate before the next
   release). cargo audit now exits clean.
+- Docs (Infra-1): SECURITY.md added - private vulnerability reporting
+  procedure (GitHub private advisory channel, supported versions,
+  response targets, scope, safe harbor); deny.toml added - cargo-deny
+  supply-chain policy (advisories mirror the RUSTSEC-2026-0387
+  documented exception, licenses allowlist derived from the locked
+  dependency tree, bans/sources at warn). Wiring cargo-deny into CI is
+  a tracked follow-up.
+- Chore (Infra-2, CI): all workflow actions pinned to full commit SHAs
+  (actions/checkout v4.4.0, dtolnay/rust-toolchain stable,
+  Swatinem/rust-cache v2.9.3) - mutable tag/branch refs eliminated.
 
 ## [0.7.0] - 2026-10-23
 
