@@ -117,6 +117,12 @@ pub struct NetNodeConfig {
     /// Known peers per outbound Disco batch (self-entry excluded,
     /// capped at `DISCO_MAX_PEERS - 1`).
     pub disco_batch: usize,
+    /// Hard cap on ESTABLISHED authenticated connections (audit Net-3):
+    /// the H-01 half-open cap bounds only the handshake phase, so the
+    /// authenticated pool itself must be bounded too - a mass dial that
+    /// completes handshakes would otherwise grow the conns map (and the
+    /// one-handler-thread-per-connection pool) without limit.
+    pub max_conns: usize,
 }
 
 impl Default for NetNodeConfig {
@@ -130,6 +136,7 @@ impl Default for NetNodeConfig {
             peers_path: None,
             max_peers: 512,
             disco_batch: 16,
+            max_conns: 128,
         }
     }
 }
@@ -521,10 +528,15 @@ impl NetNode {
         stream.set_read_timeout(Some(self.cfg.read_timeout)).ok();
 
         let peer_hex = hex::encode(vp.node_id);
-        match stream.try_clone() {
-            Ok(half) => {
-                self.conns.lock().unwrap().insert(peer_hex.clone(), half);
-            }
+        // Audit Net-3: bound the ESTABLISHED connection pool (the
+        // half-open cap bounds only the handshake phase) and reject a
+        // duplicate connection for an already-connected peer - two live
+        // handler threads for one node_id would race the idle-timeout
+        // cleanup against the fresh entry. try_clone + check-and-insert
+        // run under one lock acquisition, so the admission decision is
+        // atomic.
+        let half = match stream.try_clone() {
+            Ok(h) => h,
             Err(e) => {
                 self.log(NetEvent::Rejected {
                     addr: peer_addr,
@@ -532,6 +544,27 @@ impl NetNode {
                 });
                 return;
             }
+        };
+        {
+            let mut conns = self.conns.lock().unwrap();
+            let established = conns.len();
+            if established >= self.cfg.max_conns {
+                drop(conns);
+                self.log(NetEvent::Rejected {
+                    addr: peer_addr,
+                    reason: format!("too many established connections ({established})"),
+                });
+                return;
+            }
+            if conns.contains_key(&peer_hex) {
+                drop(conns);
+                self.log(NetEvent::Rejected {
+                    addr: peer_addr,
+                    reason: format!("peer {peer_hex} already connected"),
+                });
+                return;
+            }
+            conns.insert(peer_hex.clone(), half);
         }
         self.log(NetEvent::Authenticated {
             node_id: peer_hex.clone(),
@@ -798,6 +831,7 @@ mod tests {
             peers_path,
             max_peers: 64,
             disco_batch: 16,
+            max_conns: 64,
         };
         NetNode::start(cfg, NodeIdentity::generate()).unwrap()
     }
@@ -921,6 +955,76 @@ mod tests {
         );
     }
 
+    fn start_node_cap(n: u8, max_conns: usize, peers_path: Option<PathBuf>) -> Arc<NetNode> {
+        let cfg = NetNodeConfig {
+            listen_addr: "127.0.0.1:0".to_string(),
+            advertise_addr: format!("127.0.0.1:{}", 46_000 + n as u16),
+            bootstrap_peers: Vec::new(),
+            read_timeout: Duration::from_secs(20),
+            max_frame_len: MAX_NET_FRAME,
+            peers_path,
+            max_peers: 64,
+            disco_batch: 16,
+            max_conns,
+        };
+        NetNode::start(cfg, NodeIdentity::generate()).unwrap()
+    }
+
+    #[test]
+    fn established_cap_rejects_excess_connections() {
+        // Audit Net-3 regression: connections beyond the established cap
+        // are closed right after a successful handshake and never enter
+        // the conns map.
+        let b = start_node_cap(6, 1, None);
+        let addr = b.local_addr().unwrap().to_string();
+        let a = start_node(1, None);
+        a.dial(&addr).unwrap();
+        let a_id = a.node_id_hex();
+        wait_until(10, || b.connected().contains(&a_id));
+        let c = start_node(2, None);
+        c.dial(&addr).unwrap();
+        wait_until(10, || {
+            b.events().iter().any(|e| {
+                matches!(
+                    e,
+                    NetEvent::Rejected { reason, .. }
+                        if reason.contains("too many established connections")
+                )
+            })
+        });
+        assert_eq!(
+            b.connected().len(),
+            1,
+            "only the first peer stays connected"
+        );
+    }
+
+    #[test]
+    fn duplicate_connection_rejected() {
+        // Audit Net-3 regression: a second connection from an
+        // already-connected peer is rejected instead of replacing (and
+        // racing) the live entry.
+        let b = start_node(2, None);
+        let addr = b.local_addr().unwrap().to_string();
+        let a = start_node(1, None);
+        a.dial(&addr).unwrap();
+        let a_id = a.node_id_hex();
+        wait_until(10, || b.connected().contains(&a_id));
+        a.dial(&addr).unwrap();
+        wait_until(10, || {
+            b.events().iter().any(|e| {
+                matches!(
+                    e,
+                    NetEvent::Rejected { reason, .. } if reason.contains("already connected")
+                )
+            })
+        });
+        assert_eq!(
+            b.connected().len(),
+            1,
+            "the live entry survives the duplicate dial"
+        );
+    }
     #[test]
     fn half_open_cap_rejects_excess_inbound() {
         // Audit H-01 regression: inbound connections beyond the

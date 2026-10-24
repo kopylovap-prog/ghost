@@ -57,6 +57,14 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
   licenses / bans) reading the repository deny.toml policy;
   EmbarkStudios/cargo-deny-action pinned to a full commit SHA (v2.1.1) -
   supply-chain policy now enforced on every push and PR.
+- Security (Net-3): the authenticated-connection pool is bounded -
+  NetNodeConfig.max_conns (default 128) caps ESTABLISHED connections
+  (the H-01 half-open cap bounded only the handshake phase), and a
+  duplicate connection from an already-connected peer is rejected
+  instead of replacing the live entry (two handler threads for one
+  node_id would race the idle-timeout cleanup against the fresh
+  entry). The admission decision (try_clone + check-and-insert) runs
+  under a single lock acquisition; regression tests cover both guards.
 
 ## [0.7.0] - 2026-10-23
 
