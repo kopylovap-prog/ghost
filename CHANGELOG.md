@@ -33,6 +33,12 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
   pattern effective, so debug.log (and any other *.log build artifact)
   was not ignored. The line is split into "*.log" and "*.bak-tx"; both
   rules now work as intended.
+- Chore (M-04, M-05, CI): the contracts job no longer swallows failures
+  (continue-on-error removed). Foundry is installed from the pinned
+  v1.8.5 release and verified against its published SHA-256 before
+  unpacking (previously foundry-toolchain@v1 fetched mutable builds
+  unchecked). The Rust job gained a cargo fmt --check gate, and a new
+  audit job runs cargo audit (RustSec) against Cargo.lock.
 
 ## [0.7.0] - 2026-10-23
 
