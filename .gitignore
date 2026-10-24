@@ -9,7 +9,8 @@ mnemonic.txt
 .vscode/
 .idea/
 .DS_Store
-*.log*.bak-tx
+*.log
+*.bak-tx
 *.bak-zkint
 
 # -- publish_ghost.ps1: secrets & local artifacts (do not remove)

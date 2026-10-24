@@ -29,6 +29,10 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
   handshake phase runs under a dedicated 10 s read budget, and inbound
   handshakes are bounded by a half-open cap (MAX_HALF_OPEN = 64), with
   a regression test per fix.
+- Chore (M-09): a merged .gitignore line ("*.log*.bak-tx") left neither
+  pattern effective, so debug.log (and any other *.log build artifact)
+  was not ignored. The line is split into "*.log" and "*.bak-tx"; both
+  rules now work as intended.
 
 ## [0.7.0] - 2026-10-23
 
