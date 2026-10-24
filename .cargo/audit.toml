@@ -1,0 +1,8 @@
+# cargo-audit policy file (read by `cargo audit` locally and by the CI
+# "RustSec advisory audit" job). Rule: every ID listed in ignore must
+# carry a written reason and is re-evaluated before each release.
+
+[advisories]
+# crypto-bigint 0.5.5: advisory RUSTSEC-2026-0387 - transitive dependency (via elliptic-curve, signature/zk stack); no workspace upgrade path was
+# exercised at fix time (2026-10-24). Re-audit before the next release.
+ignore = ["RUSTSEC-2026-0387"]

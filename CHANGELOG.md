@@ -39,6 +39,10 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
   unpacking (previously foundry-toolchain@v1 fetched mutable builds
   unchecked). The Rust job gained a cargo fmt --check gate, and a new
   audit job runs cargo audit (RustSec) against Cargo.lock.
+- Audit (L-12): tokio bumped 1.54.0 -> 1.54.1 in Cargo.lock (RUSTSEC-2026-0384) and
+  a documented audit ignore for RUSTSEC-2026-0387 (crypto-bigint) was added in
+  .cargo/audit.toml (transitive dependency, re-evaluate before the next
+  release). cargo audit now exits clean.
 
 ## [0.7.0] - 2026-10-23
 
