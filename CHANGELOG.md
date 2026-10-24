@@ -65,6 +65,15 @@ token (wGHOST) and tooling for bridging, DEX swaps and atomic swaps.
   node_id would race the idle-timeout cleanup against the fresh
   entry). The admission decision (try_clone + check-and-insert) runs
   under a single lock acquisition; regression tests cover both guards.
+- Chore (Infra-4): the cargo-deny CI job failed on its first run - the
+  licenses check reported every workspace member crate as "unlicensed".
+  deny.toml assumed the members inherit Apache-2.0 from
+  [workspace.package], but no member manifest actually declared
+  license.workspace = true (opacus-dex and opacus-zk pin their fields
+  directly). All eleven member manifests now declare the license
+  (workspace inheritance or an explicit Apache-2.0 field); cargo-deny
+  0.20.2 (the exact CI version) verifies clean locally: advisories ok,
+  bans ok, licenses ok, sources ok.
 
 ## [0.7.0] - 2026-10-23
 

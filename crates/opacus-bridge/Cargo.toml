@@ -2,6 +2,7 @@
 name = "opacus-bridge"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 [dependencies]
 curve25519-dalek = { version = "4", features = ["rand_core"] }
 blake3 = "1"
