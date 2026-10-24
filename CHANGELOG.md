@@ -120,7 +120,7 @@ with the workspace gate (fmt, tests, clippy -D warnings) fully green.
   was renamed `ghost-*` -> `opacus-*` (packages, libraries, the
   `cli/ghost` -> `cli/opacus` binary `ghost` -> `opacus`, workspace
   members, cross-crate dependencies, imports, benches, CI and docs).
-  Deliberately unchanged: wire-protocol strings (`ghost-swap-p2p-v1,
+  Deliberately unchanged: wire-protocol strings (`ghost-swap-p2p-v1`,
   `ghost-swap-offer-id-v1`), circuit domain labels (`GHOST/v4/*`), the
   Poseidon label (`ghost-zk-poseidon-v1`) and the wGHOST token.
 
